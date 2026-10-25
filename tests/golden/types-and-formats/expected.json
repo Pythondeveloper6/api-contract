@@ -1,0 +1,72 @@
+[
+  {
+    "id": "PUT /t:request:count:type-changed",
+    "severity": "breaking",
+    "message": "request field \"count\" type changed: integer -> string"
+  },
+  {
+    "id": "PUT /t:request:flex:type-changed",
+    "severity": "breaking",
+    "message": "request field \"flex\" type changed: integer|string -> string"
+  },
+  {
+    "id": "PUT /t:request:price:type-changed",
+    "severity": "breaking",
+    "message": "request field \"price\" type changed: number -> integer"
+  },
+  {
+    "id": "PUT /t:request:when:format-changed",
+    "severity": "breaking",
+    "message": "request field \"when\" format changed: date -> date-time"
+  },
+  {
+    "id": "PUT /t:response:200:amount:type-changed",
+    "severity": "breaking",
+    "message": "response field \"amount\" type changed: integer -> number"
+  },
+  {
+    "id": "PUT /t:response:200:count:type-changed",
+    "severity": "breaking",
+    "message": "response field \"count\" type changed: integer -> string"
+  },
+  {
+    "id": "PUT /t:response:200:when:format-changed",
+    "severity": "breaking",
+    "message": "response field \"when\" format changed: date -> date-time"
+  },
+  {
+    "id": "PUT /t:request:plain:format-added",
+    "severity": "potentially-breaking",
+    "message": "request field \"plain\" format added: email"
+  },
+  {
+    "id": "PUT /t:request:uid:format-removed",
+    "severity": "potentially-breaking",
+    "message": "request field \"uid\" format removed: uuid"
+  },
+  {
+    "id": "PUT /t:response:200:plain:format-added",
+    "severity": "potentially-breaking",
+    "message": "response field \"plain\" format added: email"
+  },
+  {
+    "id": "PUT /t:response:200:uid:format-removed",
+    "severity": "potentially-breaking",
+    "message": "response field \"uid\" format removed: uuid"
+  },
+  {
+    "id": "PUT /t:request:amount:request-type-widened",
+    "severity": "safe",
+    "message": "request field \"amount\" type widened: integer -> number"
+  },
+  {
+    "id": "PUT /t:response:200:flex:response-type-narrowed",
+    "severity": "safe",
+    "message": "response field \"flex\" type narrowed: integer|string -> string"
+  },
+  {
+    "id": "PUT /t:response:200:price:response-type-narrowed",
+    "severity": "safe",
+    "message": "response field \"price\" type narrowed: number -> integer"
+  }
+]

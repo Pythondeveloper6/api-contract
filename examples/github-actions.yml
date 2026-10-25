@@ -1,0 +1,57 @@
+# Copy to .github/workflows/api-contract.yml.
+#
+# Runs `api-contract check` on every pull request, shows the Markdown report on
+# the run's summary page, and fails the job when the check fails.
+#
+# Prerequisite: the snapshot (api-contract.json) and, if you use one, the
+# allowlist (api-contract-allow.yml) are committed to the repository.
+name: API contract
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Install your project's own dependencies first: the check imports your
+      # app to generate the schema, so it needs everything the app imports.
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          # Pick the extra for your framework: django, ninja, fastapi, flask,
+          # apiflask, smorest or flask-openapi3.
+          pip install --pre "api-contract[fastapi]"
+
+      - name: Check the API contract
+        # Django only: the loader needs to know your settings module.
+        # env:
+        #   DJANGO_SETTINGS_MODULE: myproject.settings
+        run: |
+          set +e   # keep going after a non-zero exit so the report is still published
+          api-contract check --format markdown --output api-contract-report.md
+          status=$?
+
+          # Exit 0 = passed, 1 = failing changes (or an expired allowlist entry),
+          # 2 = configuration or load error (no report is written; see the log).
+          if [ -f api-contract-report.md ]; then
+            cat api-contract-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$status" -eq 1 ]; then
+            echo "::error::Breaking API changes found. Fix them, or acknowledge them with 'api-contract allow'."
+          elif [ "$status" -ne 0 ]; then
+            echo "::error::api-contract could not run (exit $status). See the log above."
+          fi
+          exit "$status"

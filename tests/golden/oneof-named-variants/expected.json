@@ -1,0 +1,17 @@
+[
+  {
+    "id": "POST /x:request:request-variant-removed:A",
+    "severity": "breaking",
+    "message": "request body oneOf variant removed: A"
+  },
+  {
+    "id": "POST /x:request:request-variant-removed:B",
+    "severity": "breaking",
+    "message": "request body oneOf variant removed: B"
+  },
+  {
+    "id": "POST /x:request:request-variant-added:integer",
+    "severity": "safe",
+    "message": "request body oneOf variant added: integer"
+  }
+]

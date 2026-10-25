@@ -1,0 +1,17 @@
+[
+  {
+    "id": "POST /x:request:b:type-changed",
+    "severity": "breaking",
+    "message": "request field \"b\" type changed: integer -> never"
+  },
+  {
+    "id": "POST /x:response:200:c:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"c\" removed (schema is now false)"
+  },
+  {
+    "id": "POST /x:request:a:request-field-removed",
+    "severity": "potentially-breaking",
+    "message": "request field \"a\" removed (schema is now false)"
+  }
+]

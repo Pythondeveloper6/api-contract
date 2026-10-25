@@ -1,0 +1,17 @@
+[
+  {
+    "id": "GET /d:param:query:size:default-changed",
+    "severity": "potentially-breaking",
+    "message": "query parameter \"size\" default changed: 20 -> 50"
+  },
+  {
+    "id": "GET /d:response:200:mode:default-changed",
+    "severity": "potentially-breaking",
+    "message": "response field \"mode\" default changed: fast -> none"
+  },
+  {
+    "id": "GET /d:response:200:old_field:field-deprecated",
+    "severity": "safe",
+    "message": "response field \"old_field\" deprecated"
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "PUT /n:request:b:request-became-non-nullable",
+    "severity": "breaking",
+    "message": "request field \"b\" is no longer nullable"
+  },
+  {
+    "id": "PUT /n:response:200:a:response-became-nullable",
+    "severity": "breaking",
+    "message": "response field \"a\" became nullable"
+  },
+  {
+    "id": "PUT /n:request:a:request-became-nullable",
+    "severity": "safe",
+    "message": "request field \"a\" became nullable"
+  },
+  {
+    "id": "PUT /n:response:200:b:response-became-non-nullable",
+    "severity": "safe",
+    "message": "response field \"b\" is no longer nullable"
+  }
+]

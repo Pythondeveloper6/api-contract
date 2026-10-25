@@ -1,0 +1,62 @@
+[
+  {
+    "id": "PUT /c:request:code:request-constraint-tightened:pattern",
+    "severity": "potentially-breaking",
+    "message": "request field \"code\" pattern tightened: ^[A-Z]+$ -> ^[A-Z0-9]+$"
+  },
+  {
+    "id": "PUT /c:request:meta:request-constraint-tightened:additionalProperties",
+    "severity": "potentially-breaking",
+    "message": "request field \"meta\" additionalProperties tightened"
+  },
+  {
+    "id": "PUT /c:request:name:request-constraint-tightened:maxLength",
+    "severity": "potentially-breaking",
+    "message": "request field \"name\" maxLength tightened: 100 -> 50"
+  },
+  {
+    "id": "PUT /c:request:tags:request-constraint-tightened:uniqueItems",
+    "severity": "potentially-breaking",
+    "message": "request field \"tags\" uniqueItems tightened: none -> true"
+  },
+  {
+    "id": "PUT /c:response:200:code:response-constraint-loosened:pattern",
+    "severity": "potentially-breaking",
+    "message": "response field \"code\" pattern loosened: ^[A-Z]+$ -> ^[A-Z0-9]+$"
+  },
+  {
+    "id": "PUT /c:response:200:note:response-constraint-loosened:minLength",
+    "severity": "potentially-breaking",
+    "message": "response field \"note\" minLength loosened: 5 -> none"
+  },
+  {
+    "id": "PUT /c:response:200:qty:response-constraint-loosened:minimum",
+    "severity": "potentially-breaking",
+    "message": "response field \"qty\" minimum loosened: 1 -> 0"
+  },
+  {
+    "id": "PUT /c:request:note:request-constraint-loosened:minLength",
+    "severity": "safe",
+    "message": "request field \"note\" minLength loosened: 5 -> none"
+  },
+  {
+    "id": "PUT /c:request:qty:request-constraint-loosened:minimum",
+    "severity": "safe",
+    "message": "request field \"qty\" minimum loosened: 1 -> 0"
+  },
+  {
+    "id": "PUT /c:response:200:meta:response-constraint-tightened:additionalProperties",
+    "severity": "safe",
+    "message": "response field \"meta\" additionalProperties tightened"
+  },
+  {
+    "id": "PUT /c:response:200:name:response-constraint-tightened:maxLength",
+    "severity": "safe",
+    "message": "response field \"name\" maxLength tightened: 100 -> 50"
+  },
+  {
+    "id": "PUT /c:response:200:tags:response-constraint-tightened:uniqueItems",
+    "severity": "safe",
+    "message": "response field \"tags\" uniqueItems tightened: none -> true"
+  }
+]

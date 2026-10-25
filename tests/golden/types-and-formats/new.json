@@ -1,0 +1,84 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shop",
+    "version": "1.0"
+  },
+  "paths": {
+    "/t": {
+      "put": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "price": {
+                    "type": "integer"
+                  },
+                  "when": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "plain": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "uid": {
+                    "type": "string"
+                  },
+                  "flex": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "price": {
+                      "type": "integer"
+                    },
+                    "when": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "plain": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "uid": {
+                      "type": "string"
+                    },
+                    "flex": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:request:[]:type-changed",
+    "severity": "breaking",
+    "message": "request field \"[]\" type changed: any -> string"
+  }
+]

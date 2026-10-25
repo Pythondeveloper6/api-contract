@@ -1,0 +1,52 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "t",
+  "version": "1"
+ },
+ "paths": {
+  "/x": {
+   "post": {
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "n": {
+           "anyOf": [
+            {
+             "$ref": "#/components/schemas/Node"
+            },
+            {
+             "type": "null"
+            }
+           ]
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Node": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "next": {
+      "$ref": "#/components/schemas/Node"
+     }
+    }
+   }
+  }
+ }
+}

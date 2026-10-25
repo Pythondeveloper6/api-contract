@@ -1,0 +1,12 @@
+[
+  {
+    "id": "POST /x:response:200:header:x-rate:response-header-became-optional",
+    "severity": "breaking",
+    "message": "response header \"x-rate\" became optional"
+  },
+  {
+    "id": "POST /x:response:200:header:x-id:response-header-became-required",
+    "severity": "safe",
+    "message": "response header \"x-id\" became required"
+  }
+]

@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:response:200:<Stamp>.createdAt:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"<Stamp>.createdAt\" removed"
+  }
+]

@@ -1,0 +1,86 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shop",
+    "version": "1.0"
+  },
+  "paths": {
+    "/public": {
+      "get": {
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/private": {
+      "get": {
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/alts": {
+      "get": {
+        "security": [
+          {
+            "oauth": [
+              "read"
+            ]
+          },
+          {
+            "basic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/scopes": {
+      "get": {
+        "security": [
+          {
+            "oauth": [
+              "read",
+              "admin"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/optional": {
+      "get": {
+        "security": [
+          {},
+          {
+            "oauth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "POST /pets:request:pet:request-variant-removed:Fish",
+    "severity": "breaking",
+    "message": "request field \"pet\" oneOf variant removed: Fish"
+  },
+  {
+    "id": "POST /pets:request:pet<Cat>.meow:type-changed",
+    "severity": "breaking",
+    "message": "request field \"pet<Cat>.meow\" type changed: boolean -> string"
+  },
+  {
+    "id": "POST /pets:response:200:pet<Cat>.meow:type-changed",
+    "severity": "breaking",
+    "message": "response field \"pet<Cat>.meow\" type changed: boolean -> string"
+  },
+  {
+    "id": "POST /pets:response:200:tag:type-changed",
+    "severity": "breaking",
+    "message": "response field \"tag\" type changed: string -> any"
+  },
+  {
+    "id": "POST /pets:response:200:mixed<anyOf>:response-constraint-loosened:maxLength",
+    "severity": "potentially-breaking",
+    "message": "response field \"mixed<anyOf>\" maxLength loosened: 3 -> 5"
+  },
+  {
+    "id": "POST /pets:response:200:notnull:composition-changed:not",
+    "severity": "potentially-breaking",
+    "message": "response field \"notnull\" not changed"
+  },
+  {
+    "id": "POST /pets:response:200:owner:composition-changed:anyOf",
+    "severity": "potentially-breaking",
+    "message": "response field \"owner\" anyOf members changed"
+  },
+  {
+    "id": "POST /pets:response:200:pet:response-variant-added:Bird",
+    "severity": "potentially-breaking",
+    "message": "response field \"pet\" oneOf variant added: Bird"
+  },
+  {
+    "id": "POST /pets:response:200:tag:composition-changed:oneOf",
+    "severity": "potentially-breaking",
+    "message": "response field \"tag\" oneOf added"
+  },
+  {
+    "id": "POST /pets:response:200:tuple:schema-changed:prefixItems",
+    "severity": "potentially-breaking",
+    "message": "response field \"tuple\" schema keyword 'prefixItems' changed"
+  },
+  {
+    "id": "POST /pets:request:pet:request-variant-added:Bird",
+    "severity": "safe",
+    "message": "request field \"pet\" oneOf variant added: Bird"
+  },
+  {
+    "id": "POST /pets:response:200:pet2:response-variant-removed:Fish",
+    "severity": "safe",
+    "message": "response field \"pet2\" oneOf variant removed: Fish"
+  }
+]

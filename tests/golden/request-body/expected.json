@@ -1,0 +1,37 @@
+[
+  {
+    "id": "POST /a:request:required-request-body-added",
+    "severity": "breaking",
+    "message": "new required request body"
+  },
+  {
+    "id": "POST /d:request:request-body-became-required",
+    "severity": "breaking",
+    "message": "request body became required"
+  },
+  {
+    "id": "POST /f:request:application/xml:request-content-type-removed",
+    "severity": "breaking",
+    "message": "request content type application/xml removed"
+  },
+  {
+    "id": "POST /c:request:request-body-removed",
+    "severity": "potentially-breaking",
+    "message": "request body removed"
+  },
+  {
+    "id": "POST /b:request:optional-request-body-added",
+    "severity": "safe",
+    "message": "new optional request body"
+  },
+  {
+    "id": "POST /e:request:request-body-became-optional",
+    "severity": "safe",
+    "message": "request body became optional"
+  },
+  {
+    "id": "POST /f:request:multipart/form-data:request-content-type-added",
+    "severity": "safe",
+    "message": "request content type multipart/form-data added"
+  }
+]

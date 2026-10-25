@@ -1,0 +1,27 @@
+[
+  {
+    "id": "POST /users:request:name:request-field-became-required",
+    "severity": "breaking",
+    "message": "request field \"name\" became required"
+  },
+  {
+    "id": "POST /users:request:password:required-request-field-added",
+    "severity": "breaking",
+    "message": "new required request field \"password\""
+  },
+  {
+    "id": "POST /users:request:legacy:request-field-removed",
+    "severity": "potentially-breaking",
+    "message": "request field \"legacy\" removed"
+  },
+  {
+    "id": "POST /users:request:nickname:request-field-became-optional",
+    "severity": "safe",
+    "message": "request field \"nickname\" became optional"
+  },
+  {
+    "id": "POST /users:request:referrer:optional-request-field-added",
+    "severity": "safe",
+    "message": "new optional request field \"referrer\""
+  }
+]

@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:request:<Stamp>.createdAt:required-request-field-added",
+    "severity": "breaking",
+    "message": "new required request field \"<Stamp>.createdAt\""
+  }
+]

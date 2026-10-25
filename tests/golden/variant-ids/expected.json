@@ -1,0 +1,12 @@
+[
+  {
+    "id": "POST /x:request:request-variant-removed:boolean",
+    "severity": "breaking",
+    "message": "request body oneOf variant removed: boolean"
+  },
+  {
+    "id": "POST /x:request:request-variant-removed:integer",
+    "severity": "breaking",
+    "message": "request body oneOf variant removed: integer"
+  }
+]

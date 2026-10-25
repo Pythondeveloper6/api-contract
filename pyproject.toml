@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "api-contract"
+version = "0.1.0a1"
+description = "Catch breaking API changes in CI by diffing OpenAPI schemas, for Django, Flask and FastAPI."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Mahmoud Ahmed", email = "pythondeveloper6@gmail.com" }]
+keywords = ["openapi", "api", "breaking-changes", "contract", "ci", "django", "fastapi", "flask"]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: Django",
+    "Framework :: FastAPI",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    # The allowlist file is YAML, and so are many hand-written specs.
+    "pyyaml>=6.0",
+    # Config lives in pyproject.toml; tomllib only joined the stdlib in 3.11.
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/Pythondeveloper6/api-contract"
+Repository = "https://github.com/Pythondeveloper6/api-contract"
+Documentation = "https://pythondeveloper6.github.io/api-contract/"
+Issues = "https://github.com/Pythondeveloper6/api-contract/issues"
+
+[project.optional-dependencies]
+# The core never imports a web framework. Each extra only pulls in what its
+# loader needs to *generate* a schema from the user's app.
+django = ["django>=4.2", "djangorestframework>=3.14", "drf-spectacular>=0.27"]
+ninja = ["django>=4.2", "django-ninja>=1.0"]
+# Everything the Django loader tests need (DRF and Ninja example projects).
+test-django = ["django>=4.2", "djangorestframework>=3.14", "drf-spectacular>=0.27", "django-ninja>=1.0"]
+fastapi = ["fastapi>=0.110"]
+flask = ["flask>=3.0"]
+apiflask = ["apiflask>=2.0"]
+smorest = ["flask-smorest>=0.44"]
+flask-openapi3 = ["flask-openapi3>=4.0"]
+# Everything the FastAPI and Flask loader tests need.
+test-web = ["fastapi>=0.110", "httpx>=0.27", "flask>=3.0", "apiflask>=2.0", "flask-smorest>=0.44", "flask-openapi3>=4.0"]
+dev = ["pytest>=8.0", "ruff>=0.17,<0.18", "build>=1.2"]
+# Builds the documentation site (mkdocs build --strict). pymdownx comes with it.
+docs = ["mkdocs-material>=9.5"]
+
+[project.scripts]
+api-contract = "api_contract.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/api_contract"]
+
+# An explicit allowlist, not a denylist: hatchling's sdist default is "the
+# whole project minus what VCS ignores", which ships whatever a local tool
+# happens to drop in the directory.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/examples",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/mkdocs.yml",
+    "/SECURITY.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]

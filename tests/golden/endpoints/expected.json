@@ -1,0 +1,27 @@
+[
+  {
+    "id": "GET /legacy:endpoint-removed",
+    "severity": "breaking",
+    "message": "endpoint removed"
+  },
+  {
+    "id": "DELETE /orders:method-removed",
+    "severity": "breaking",
+    "message": "method removed"
+  },
+  {
+    "id": "POST /coupons:endpoint-added",
+    "severity": "safe",
+    "message": "new endpoint"
+  },
+  {
+    "id": "GET /old-but-kept:endpoint-deprecated",
+    "severity": "safe",
+    "message": "endpoint deprecated"
+  },
+  {
+    "id": "POST /orders:method-added",
+    "severity": "safe",
+    "message": "new endpoint"
+  }
+]

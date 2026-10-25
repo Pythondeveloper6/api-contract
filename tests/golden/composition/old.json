@@ -1,0 +1,136 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shop",
+    "version": "1.0"
+  },
+  "paths": {
+    "/pets": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pet": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Cat"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Dog"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Fish"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pet": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Cat"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Dog"
+                        }
+                      ]
+                    },
+                    "pet2": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Dog"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Fish"
+                        }
+                      ]
+                    },
+                    "owner": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "tag": {
+                      "type": "string"
+                    },
+                    "mixed": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 3
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "tuple": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "notnull": {
+                      "not": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Cat": {
+        "type": "object",
+        "properties": {
+          "meow": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Dog": {
+        "type": "object",
+        "properties": {
+          "bark": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Fish": {
+        "type": "object",
+        "properties": {
+          "fins": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

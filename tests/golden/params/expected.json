@@ -1,0 +1,42 @@
+[
+  {
+    "id": "GET /search:param:query:page:type-changed",
+    "severity": "breaking",
+    "message": "query parameter \"page\" type changed: integer -> string"
+  },
+  {
+    "id": "GET /search:param:query:q:param-became-required",
+    "severity": "breaking",
+    "message": "query parameter \"q\" became required"
+  },
+  {
+    "id": "GET /search:param:query:region:required-param-added",
+    "severity": "breaking",
+    "message": "new required query parameter \"region\""
+  },
+  {
+    "id": "GET /search:param:query:ids:param-serialization-changed:explode",
+    "severity": "potentially-breaking",
+    "message": "query parameter \"ids\" explode changed: true -> false"
+  },
+  {
+    "id": "GET /search:param:query:legacy:param-removed",
+    "severity": "potentially-breaking",
+    "message": "query parameter \"legacy\" removed"
+  },
+  {
+    "id": "GET /search:param:header:x-tenant:param-deprecated",
+    "severity": "safe",
+    "message": "header parameter \"x-tenant\" deprecated"
+  },
+  {
+    "id": "GET /search:param:query:debug:optional-param-added",
+    "severity": "safe",
+    "message": "new optional query parameter \"debug\""
+  },
+  {
+    "id": "GET /search:param:query:sort:param-became-optional",
+    "severity": "safe",
+    "message": "query parameter \"sort\" became optional"
+  }
+]

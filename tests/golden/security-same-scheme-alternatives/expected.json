@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:security:auth-alternative-removed:oauth[read]",
+    "severity": "breaking",
+    "message": "authentication option oauth[read] no longer accepted"
+  }
+]

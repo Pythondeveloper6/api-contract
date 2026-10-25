@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# One virtualenv per framework stack (.venv, .venv-web, .venv-django, ...):
+# the Django and FastAPI/Flask loaders are developed against separate installs.
+.venv*/
+venv/
+
+# macOS Finder metadata. Ignored here rather than relying on every
+# contributor having it in their global excludes.
+.DS_Store
+
+# mkdocs build output
+site/

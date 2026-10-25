@@ -1,0 +1,12 @@
+[
+  {
+    "id": "POST /x:response:200:m:response-became-non-nullable",
+    "severity": "safe",
+    "message": "response field \"m\" is no longer nullable"
+  },
+  {
+    "id": "POST /x:response:200:n:field-deprecated",
+    "severity": "safe",
+    "message": "response field \"n\" deprecated"
+  }
+]

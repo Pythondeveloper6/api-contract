@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:response:200:<Node>.name:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"<Node>.name\" removed"
+  }
+]

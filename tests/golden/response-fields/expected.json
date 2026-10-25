@@ -1,0 +1,27 @@
+[
+  {
+    "id": "GET /users/{}:response:200:legacy:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"legacy\" removed"
+  },
+  {
+    "id": "GET /users/{}:response:200:nickname:response-field-became-optional",
+    "severity": "breaking",
+    "message": "response field \"nickname\" became optional"
+  },
+  {
+    "id": "GET /users/{}:response:200:created:response-field-added",
+    "severity": "safe",
+    "message": "new response field \"created\""
+  },
+  {
+    "id": "GET /users/{}:response:200:name:response-field-became-required",
+    "severity": "safe",
+    "message": "response field \"name\" became required"
+  },
+  {
+    "id": "GET /users/{}:response:200:referrer:response-field-added",
+    "severity": "safe",
+    "message": "new response field \"referrer\""
+  }
+]

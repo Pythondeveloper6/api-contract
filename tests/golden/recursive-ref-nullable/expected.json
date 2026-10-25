@@ -1,0 +1,7 @@
+[
+  {
+    "id": "POST /x:response:200:n:response-became-nullable",
+    "severity": "breaking",
+    "message": "response field \"n\" became nullable"
+  }
+]

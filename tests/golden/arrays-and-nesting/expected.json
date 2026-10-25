@@ -1,0 +1,27 @@
+[
+  {
+    "id": "GET /cart:response:200:customer.address.zip:type-changed",
+    "severity": "breaking",
+    "message": "response field \"customer.address.zip\" type changed: string -> integer"
+  },
+  {
+    "id": "GET /cart:response:200:items[].dims.w:type-changed",
+    "severity": "breaking",
+    "message": "response field \"items[].dims.w\" type changed: number -> string"
+  },
+  {
+    "id": "GET /cart:response:200:items[].total:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"items[].total\" removed"
+  },
+  {
+    "id": "GET /cart:response:200:labels{}:type-changed",
+    "severity": "breaking",
+    "message": "response field \"labels{}\" type changed: string -> integer"
+  },
+  {
+    "id": "GET /cart:response:200:matrix[][]:type-changed",
+    "severity": "breaking",
+    "message": "response field \"matrix[][]\" type changed: integer -> string"
+  }
+]

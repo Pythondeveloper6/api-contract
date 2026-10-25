@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PUT /e:request:kind:request-enum-added",
+    "severity": "breaking",
+    "message": "request field \"kind\" restricted to a|b"
+  },
+  {
+    "id": "PUT /e:request:status:request-enum-value-removed:\"void\"",
+    "severity": "breaking",
+    "message": "request field \"status\" enum value removed: \"void\""
+  },
+  {
+    "id": "PUT /e:response:200:color:response-enum-removed",
+    "severity": "potentially-breaking",
+    "message": "response field \"color\" no longer an enum"
+  },
+  {
+    "id": "PUT /e:response:200:status:response-enum-value-added:\"on_hold\"",
+    "severity": "potentially-breaking",
+    "message": "response field \"status\" enum value added: \"on_hold\""
+  },
+  {
+    "id": "PUT /e:request:color:request-enum-removed",
+    "severity": "safe",
+    "message": "request field \"color\" no longer an enum"
+  },
+  {
+    "id": "PUT /e:request:status:request-enum-value-added:\"on_hold\"",
+    "severity": "safe",
+    "message": "request field \"status\" enum value added: \"on_hold\""
+  },
+  {
+    "id": "PUT /e:response:200:kind:response-enum-added",
+    "severity": "safe",
+    "message": "response field \"kind\" restricted to a|b"
+  },
+  {
+    "id": "PUT /e:response:200:status:response-enum-value-removed:\"void\"",
+    "severity": "safe",
+    "message": "response field \"status\" enum value removed: \"void\""
+  }
+]

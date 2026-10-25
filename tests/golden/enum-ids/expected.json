@@ -1,0 +1,12 @@
+[
+  {
+    "id": "POST /x:request:request-enum-value-removed:\"1\"",
+    "severity": "breaking",
+    "message": "request body enum value removed: \"1\""
+  },
+  {
+    "id": "POST /x:request:request-enum-value-removed:1",
+    "severity": "breaking",
+    "message": "request body enum value removed: 1"
+  }
+]

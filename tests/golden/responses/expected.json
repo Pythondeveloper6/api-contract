@@ -1,0 +1,47 @@
+[
+  {
+    "id": "GET /r:response:200:header:etag:response-header-removed",
+    "severity": "breaking",
+    "message": "response header \"etag\" removed"
+  },
+  {
+    "id": "GET /r:response:200:header:x-rate-limit:type-changed",
+    "severity": "breaking",
+    "message": "response header \"x-rate-limit\" type changed: integer -> string"
+  },
+  {
+    "id": "GET /r:response:200:text/csv:response-content-type-removed",
+    "severity": "breaking",
+    "message": "response 200 content type text/csv removed"
+  },
+  {
+    "id": "POST /r:response:201:response-success-removed",
+    "severity": "breaking",
+    "message": "response 201 removed"
+  },
+  {
+    "id": "GET /r:response:202:response-success-added",
+    "severity": "potentially-breaking",
+    "message": "response 202 added"
+  },
+  {
+    "id": "GET /r:response:404:response-status-removed",
+    "severity": "potentially-breaking",
+    "message": "response 404 removed"
+  },
+  {
+    "id": "GET /r:response:200:application/xml:response-content-type-added",
+    "severity": "safe",
+    "message": "response 200 content type application/xml added"
+  },
+  {
+    "id": "GET /r:response:200:header:link:response-header-added",
+    "severity": "safe",
+    "message": "response header \"link\" added"
+  },
+  {
+    "id": "GET /r:response:429:response-status-added",
+    "severity": "safe",
+    "message": "response 429 added"
+  }
+]

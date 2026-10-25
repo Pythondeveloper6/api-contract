@@ -1,0 +1,32 @@
+[
+  {
+    "id": "GET /alts:security:auth-alternative-removed:apiKey",
+    "severity": "breaking",
+    "message": "authentication option apiKey no longer accepted"
+  },
+  {
+    "id": "GET /public:security:auth-added",
+    "severity": "breaking",
+    "message": "authentication now required: oauth"
+  },
+  {
+    "id": "GET /scopes:security:auth-scopes-added:oauth",
+    "severity": "breaking",
+    "message": "oauth now requires scopes: admin"
+  },
+  {
+    "id": "GET /alts:security:auth-alternative-added:basic",
+    "severity": "safe",
+    "message": "authentication option basic added"
+  },
+  {
+    "id": "GET /private:security:auth-removed",
+    "severity": "safe",
+    "message": "authentication no longer required"
+  },
+  {
+    "id": "GET /scopes:security:auth-scopes-removed:oauth",
+    "severity": "safe",
+    "message": "oauth no longer requires scopes: write"
+  }
+]

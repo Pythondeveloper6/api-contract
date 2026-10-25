@@ -1,0 +1,90 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shop",
+    "version": "1.0"
+  },
+  "paths": {
+    "/t": {
+      "put": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer"
+                  },
+                  "amount": {
+                    "type": "integer"
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "when": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "plain": {
+                    "type": "string"
+                  },
+                  "uid": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "flex": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "amount": {
+                      "type": "integer"
+                    },
+                    "price": {
+                      "type": "number"
+                    },
+                    "when": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "plain": {
+                      "type": "string"
+                    },
+                    "uid": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "flex": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

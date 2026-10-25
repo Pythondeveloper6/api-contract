@@ -1,0 +1,32 @@
+[
+  {
+    "id": "GET /authors/{}:response:200:books[].isbn:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"books[].isbn\" removed"
+  },
+  {
+    "id": "POST /books:request:title:request-field-became-required",
+    "severity": "breaking",
+    "message": "request field \"title\" became required"
+  },
+  {
+    "id": "POST /books:response:200:[].isbn:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"[].isbn\" removed"
+  },
+  {
+    "id": "POST /books:request:isbn:request-field-removed",
+    "severity": "potentially-breaking",
+    "message": "request field \"isbn\" removed"
+  },
+  {
+    "id": "GET /authors/{}:response:200:books[].title:response-field-became-required",
+    "severity": "safe",
+    "message": "response field \"books[].title\" became required"
+  },
+  {
+    "id": "POST /books:response:200:[].title:response-field-became-required",
+    "severity": "safe",
+    "message": "response field \"[].title\" became required"
+  }
+]

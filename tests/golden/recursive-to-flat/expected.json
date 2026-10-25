@@ -1,0 +1,12 @@
+[
+  {
+    "id": "GET /tree:response:200:children[]:type-changed",
+    "severity": "breaking",
+    "message": "response field \"children[]\" type changed: object -> string"
+  },
+  {
+    "id": "GET /tree:response:200:parent:response-field-removed",
+    "severity": "breaking",
+    "message": "response field \"parent\" removed"
+  }
+]
