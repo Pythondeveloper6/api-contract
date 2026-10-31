@@ -466,10 +466,10 @@ def _read_text(path: str) -> str:
         raise ApiContractError(f"cannot read {path}: {exc.strerror or exc}") from exc
 
 
-class _StderrHandler(logging.StreamHandler):  # type: ignore[type-arg]
+class _StderrHandler(logging.StreamHandler):  # type: ignore[type-arg,unused-ignore]
     """Writes to whatever ``sys.stderr`` is at the time (it may be swapped)."""
 
-    @property  # type: ignore[override]
+    @property  # type: ignore[override,unused-ignore]
     def stream(self):  # noqa: D401
         return sys.stderr
 

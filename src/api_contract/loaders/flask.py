@@ -75,11 +75,12 @@ class FlaskLoader(BaseLoader):
 
     def _find_spec(self, app: Any) -> dict | None:
         # 1. APIFlask: ``app.spec`` is a dict (or a YAML string if configured so).
+        api_flask: Any
         try:
-            from apiflask import APIFlask
+            from apiflask import APIFlask as api_flask
         except ImportError:
-            APIFlask = None  # noqa: N806
-        if APIFlask is not None and isinstance(app, APIFlask):
+            api_flask = None
+        if api_flask is not None and isinstance(app, api_flask):
             spec = app.spec
             if isinstance(spec, str):
                 import yaml
@@ -94,11 +95,12 @@ class FlaskLoader(BaseLoader):
                 return entry["ext_obj"].spec.to_dict()
 
         # 3. flask-openapi3: ``api_doc`` is a property (older versions: a method).
+        open_api: Any
         try:
-            from flask_openapi3 import OpenAPI
+            from flask_openapi3 import OpenAPI as open_api
         except ImportError:
-            OpenAPI = None  # noqa: N806
-        if OpenAPI is not None and isinstance(app, OpenAPI):
+            open_api = None
+        if open_api is not None and isinstance(app, open_api):
             doc = app.api_doc
             if callable(doc):
                 doc = doc()

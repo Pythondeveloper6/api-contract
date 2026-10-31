@@ -42,7 +42,7 @@ def render(
 
     counts = {"tests": str(len(cases)), "failures": str(failures), "skipped": str(skipped)}
     root = ET.Element("testsuites", counts)
-    suite = ET.SubElement(root, "testsuite", name="api-contract", errors="0", **counts)
+    suite = ET.SubElement(root, "testsuite", {"name": "api-contract", "errors": "0", **counts})
     suite.extend(cases)
     ET.indent(root)
     return (

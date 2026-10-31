@@ -15,7 +15,7 @@ from .rules import Rules
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover - exercised on 3.10 in CI
-    import tomli as tomllib
+    import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
 
 CONFIG_FILES = ("api-contract.toml", "pyproject.toml")
 _KEYS = {

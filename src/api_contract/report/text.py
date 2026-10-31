@@ -81,11 +81,11 @@ def render(
 
     if result.expired:
         lines += ["", "EXPIRED ALLOWLIST ENTRIES (these fail the check)"]
-        for entry in result.expired:
-            lines.append(f"  {entry.id}  expired {entry.expires.isoformat()}: {entry.reason}")
+        for allow in result.expired:
+            lines.append(f"  {allow.id}  expired {allow.expires.isoformat()}: {allow.reason}")
     if result.stale:
         lines += ["", "STALE ALLOWLIST ENTRIES (match no change; consider removing)"]
-        lines += [f"  {entry.id}" for entry in result.stale]
+        lines += [f"  {allow.id}" for allow in result.stale]
 
     failing = result.failing
     if failing:

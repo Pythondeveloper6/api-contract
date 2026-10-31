@@ -12,13 +12,18 @@ from __future__ import annotations
 
 import copy
 import inspect
-import os
 import re
 import typing
 from collections.abc import Iterator
 from typing import Any
 
-from api_contract.loaders.base import BaseLoader, LoaderError, describe_callable, import_string
+from api_contract.loaders.base import (
+    BaseLoader,
+    LoaderError,
+    describe_callable,
+    describe_class,
+    import_string,
+)
 
 
 def _model_classes(tp: Any, seen: set[int] | None = None) -> typing.Iterator[type]:
@@ -96,13 +101,8 @@ class FastAPILoader(BaseLoader):
             for root in roots:
                 for model in _model_classes(root):
                     if model.__name__ == base:
-                        try:
-                            file = inspect.getsourcefile(model)
-                            _, line = inspect.getsourcelines(model)
-                        except (TypeError, OSError):
-                            return model.__module__ + "." + model.__qualname__
-                        name = model.__qualname__.split("<locals>.")[-1]
-                        return f"{model.__module__}.{name} ({os.path.relpath(file)}:{line})"
+                        found = describe_class(model)
+                        return found or f"{model.__module__}.{model.__qualname__}"
         return None
 
 
