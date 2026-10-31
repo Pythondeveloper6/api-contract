@@ -20,3 +20,22 @@ venv/
 
 # mkdocs build output
 site/
+
+# Internal planning and assessment notes: never committed.
+PACKAGES-GAP?-AND-FEATURES.md
+*-ASSESSMENT.md
+VALUE-ASSESSMEN?.md
+plan.md
+PLAN.md
+PLAN*.md
+FEATURE_CANDIDATES.md
+IMPLEMENTATION_STATUS.md
+RELEASE_SCOPE.md
+RELEASE_*_PLAN.md
+ROADMAP-INTERNAL*.md
+NOTES*.md
+docs/superpowers/
+docs/feature-backlog.md
+reports/
+.planning/
+.claude/
