@@ -176,6 +176,20 @@ def build_parser(prog: str = "api-contract") -> argparse.ArgumentParser:
     p.add_argument("--fail", action="store_true", help="exit 1 if any entry is listed")
 
     p = sub.add_parser(
+        "verify-samples",
+        parents=[common],
+        help="check recorded responses against the contract (runtime sampling)",
+    )
+    p.add_argument("samples", nargs="+", help="JSON-lines samples or HAR files")
+    p.add_argument("--against", metavar="REV", help="use the snapshot as committed at REV")
+    p.add_argument("--format", choices=["text", "json"], default="text")
+    p.add_argument(
+        "--fail-undocumented",
+        action="store_true",
+        help="also exit 1 for samples whose endpoint is not in the contract",
+    )
+
+    p = sub.add_parser(
         "import-oasdiff", parents=[common], help="convert oasdiff ignore/severity files"
     )
     p.add_argument("--err-ignore", metavar="FILE", help="oasdiff --err-ignore file")
@@ -421,6 +435,30 @@ def _cmd_import_oasdiff(args: argparse.Namespace, config: Config, prog: str) -> 
     return EXIT_OK
 
 
+def _cmd_verify_samples(args: argparse.Namespace, config: Config, prog: str) -> int:
+    from .normalize import normalize
+    from .sampling import read_samples, render_report, verify_samples
+
+    if args.source:
+        contract = normalize(load_spec(args.source, config=config), ignore_keys=config.ignore_keys)
+    else:
+        contract = read_snapshot(config.snapshot, against=args.against)
+    samples = [s for path in args.samples for s in read_samples(path)]
+    report = verify_samples(contract, samples)
+    if args.format == "json":
+        data = {
+            "ok": report.ok,
+            "checked": report.checked,
+            "problems": report.problems,
+            "unmatched": report.unmatched,
+        }
+        sys.stdout.write(json.dumps(data, indent=2) + "\n")
+    else:
+        sys.stdout.write(render_report(report))
+    failed = not report.ok or (args.fail_undocumented and report.unmatched)
+    return EXIT_FAILED if failed else EXIT_OK
+
+
 def _read_text(path: str) -> str:
     try:
         return Path(path).read_text(encoding="utf-8")
@@ -451,6 +489,7 @@ _COMMANDS = {
     "explain": _cmd_explain,
     "expiring": _cmd_expiring,
     "import-oasdiff": _cmd_import_oasdiff,
+    "verify-samples": _cmd_verify_samples,
 }
 
 
