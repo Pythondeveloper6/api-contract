@@ -107,19 +107,21 @@ def measure(operations: int, repeat: int) -> dict[str, Any]:
     old = build_spec(operations)
     new = changed(old)
     normalize_times, diff_times = [], []
-    peak = 0
     changes: list[Any] = []
     for _ in range(repeat):
         gc.collect()
-        tracemalloc.start()
         start = time.perf_counter()
         normalize(old)
         normalize_times.append(time.perf_counter() - start)
         start = time.perf_counter()
         changes = diff(old, new)
         diff_times.append(time.perf_counter() - start)
-        peak = max(peak, tracemalloc.get_traced_memory()[1])
-        tracemalloc.stop()
+    # Memory in a separate run: tracemalloc slows everything down several times.
+    gc.collect()
+    tracemalloc.start()
+    diff(old, new)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
     real_ops = sum(len(item) for item in old["paths"].values())
     return {
         "operations": real_ops,
@@ -140,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"api-contract {__version__}, Python {platform.python_version()}, "
         f"{platform.system()} {platform.machine()}; median of {args.repeat} runs; "
-        "peak memory measured with tracemalloc (adds overhead to the timings)\n"
+        "peak memory of one diff, measured separately with tracemalloc\n"
     )
     print(
         "| Operations | Components | normalize (s) | diff incl. normalize (s) "
