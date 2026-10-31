@@ -19,6 +19,12 @@ affected version, steps to reproduce, and the impact you observed. You can
 expect an acknowledgement as soon as possible; fixes ship in the next 0.1.x
 release.
 
-Note that `api-contract` imports your application to generate its schema, so
-it runs your project's code with your permissions. Run it only on code you
-trust, as you would run your test suite.
+## Trust boundaries in short
+
+`api-contract` imports your application to generate its schema, so it runs
+your project's code with your permissions. Run it only on code you trust, as
+you would run your test suite, and in CI only on `pull_request` (never
+`pull_request_target`) with a read-only token. Spec files, allowlists, traffic
+samples and every value printed in a report are treated as untrusted data.
+
+The full threat model is in [docs/security.md](docs/security.md).
