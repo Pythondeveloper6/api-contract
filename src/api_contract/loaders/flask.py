@@ -131,17 +131,17 @@ class FlaskLoader(BaseLoader):
         return describe_callable(view)
 
     def attribute_schema(self, component_name: str) -> str | None:
-        finders = [_marshmallow_schemas, _pydantic_models]
-        if type(self.app).__module__.split(".")[0] == "flask_openapi3":
-            finders.reverse()
+        # flask-openapi3 builds schemas from pydantic models; APIFlask and
+        # flask-smorest from marshmallow schemas. Never cross the two: another
+        # library's class with the same name would be a wrong answer.
+        is_openapi3 = type(self.app).__module__.split(".")[0] == "flask_openapi3"
+        found = (_pydantic_models if is_openapi3 else _marshmallow_schemas)(component_name)
+        if not found:
+            return None
         # Prefer classes from the app's own package: the registries are process-wide.
         home = self.target.partition(":")[0].split(".")[0]
-        for finder in finders:
-            found = finder(component_name)
-            if found:
-                own = [c for c in found if c.__module__.split(".")[0] == home]
-                return describe_class((own or found)[0])
-        return None
+        own = [c for c in found if c.__module__.split(".")[0] == home]
+        return describe_class((own or found)[0])
 
 
 def _marshmallow_schemas(name: str) -> list[Any]:
