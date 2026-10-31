@@ -107,8 +107,15 @@ nav:
       - Allowlist: allowlist.md
       - Reports: reports.md
       - Continuous integration: ci.md
+      - Beyond the schema: beyond-the-schema.md
+      - Explaining a change: explain.md
+      - Troubleshooting: troubleshooting.md
   - Reference:
       - Rules: rules.md
       - Python API: python-api.md
       - Limitations: limitations.md
+      - Stability policy: stability.md
+      - Performance: performance.md
+      - Security: security.md
+      - Coming from oasdiff: oasdiff.md
   - Contributing: contributing.md

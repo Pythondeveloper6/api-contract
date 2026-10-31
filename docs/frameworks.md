@@ -34,7 +34,9 @@ working directory is added to `sys.path`).
 | `django:ninja:pkg.module:api` | An explicit NinjaAPI instance |
 | `fastapi:pkg.module:app` | A FastAPI instance, or a callable returning one |
 | `flask:pkg.module:app` | A Flask instance, or a factory such as `create_app` |
-| `file:path/to/openapi.json` | A JSON or YAML file |
+| `flask-routes:pkg.module:app` | Endpoints and methods only, from a Flask app's URL map (no OpenAPI library needed) |
+| `file:path/to/openapi.json` | A JSON or YAML file (OpenAPI 3.0/3.1, or Swagger 2.0) |
+| `git:origin/main:openapi.json` | A JSON or YAML file as committed at a git revision |
 | `file:pkg.module:callable` | A callable that returns the OpenAPI dict |
 
 `--source` overrides the configured source for one run. Any other `<kind>`
@@ -63,7 +65,8 @@ failure points at a file and not only at a URL:
 | DRF | the serializer class | the view method, plus the serializer |
 | django-ninja | the `Schema` class (when its name is unique) | the view function |
 | FastAPI | the pydantic model | the endpoint function |
-| Flask (all three) | not implemented | the view function or `MethodView` method |
+| APIFlask, flask-smorest | the marshmallow `Schema` class | the view function or `MethodView` method |
+| flask-openapi3 | the pydantic model | the view function |
 
 Attribution appears as an `at:` line in the [text report](reports.md#text)
 and in the `attribution` field of the [JSON report](reports.md#json), in the
@@ -71,8 +74,11 @@ form `dotted.name (relative/file.py:LINE)`. DRF adds the serializer after the
 view, as shown below.
 
 Attribution is best effort. If it fails, the change is still reported, without
-the `at:` line. Removed endpoints and methods are never attributed, because the
-code is gone.
+the `at:` line. A removed endpoint's code is gone, so `snapshot` records each
+operation's handler in the snapshot: when the endpoint later disappears, the
+report names where it used to be (`at: orders.views.legacy (orders/views.py:12)
+(removed)`). Snapshots taken before this was added have no record, so their
+removed endpoints are not attributed until the snapshot is retaken.
 
 ## Django REST framework (drf-spectacular)
 
@@ -173,12 +179,20 @@ source = "fastapi:app.main:app"
 The target is a `FastAPI` instance, or a callable that returns one (an app
 factory such as `fastapi:app.main:create_app`).
 
+### Mounted sub-apps
+
+FastAPI leaves apps added with `app.mount("/v1", sub_app)` out of the parent's
+OpenAPI document. The loader merges every mounted FastAPI app back in
+(including mounts inside mounts): its paths get the mount prefix
+(`/v1/orders/{id}`) and its components join the parent's. When a sub-app's
+component has the same name as a different parent component, it is renamed
+`<Name>__<prefix>` (`Order__v1`) and its references follow; identical
+components are shared. A sub-app's top-level `security` is applied to its own
+operations. Other mounted ASGI apps (`StaticFiles`, ...) are skipped.
+Endpoints and models inside sub-apps are attributed like the parent's.
+
 ### Known gaps
 
-- **Mounted sub-apps are not covered.** Routes of an app added with
-  `app.mount("/v1", sub_app)` are not in the parent's OpenAPI document, so they
-  are neither compared nor attributed. Add a second `api-contract` run with the
-  sub-app as the source (a separate config file and snapshot, via `--config`).
 - Model attribution matches pydantic model names reachable from route response
   models and body parameters. Models used only in other ways are attributed to
   the endpoint function.
@@ -203,7 +217,24 @@ arguments. The library is detected from the app, in this order:
 If none is found, the loader fails with an error that lists the three. For
 anything else (Flasgger, hand-written specs, ...), export the spec yourself and
 use a `file:` source that points at a callable returning the OpenAPI dict:
-`file:myapp.spec:build_spec`.
+`file:myapp.spec:build_spec`. flask-restx and other Swagger 2.0 generators work
+through such a callable too: Swagger 2.0 is converted to OpenAPI 3.0 first.
+
+### Route inventory: `flask-routes:`
+
+A Flask app with no OpenAPI library still has a URL map. `flask-routes:` builds
+a minimal document from it: every rule and method (except `HEAD`, `OPTIONS` and
+`static`), with path parameters typed from their converters (`int` ->
+integer, `float` -> number, `uuid` -> string/uuid, anything else -> string).
+
+```toml
+source = "flask-routes:myapp:create_app"
+```
+
+That catches removed and renamed endpoints and methods, and changed path
+parameter types, which are the breaks a mobile client notices first. It cannot
+see request or response bodies, so `check` warns that no operation declares a
+typed response. Move to `flask:` once an OpenAPI library describes the bodies.
 
 The plain `flask` extra installs only Flask; it does not add an OpenAPI
 library. Install the extra that matches the library your app uses.
@@ -212,9 +243,10 @@ library. Install the extra that matches the library your app uses.
 
 - **flask-smorest with several `Api` objects**: only the first registered one
   is read. The others are not compared.
-- **Schema attribution is not implemented** for Flask. Every change is
-  attributed to the view function (or the `MethodView` method) instead of the
-  marshmallow or pydantic schema.
+- **Schema attribution goes by name.** apispec names a component after its
+  marshmallow class minus a `Schema` suffix; a schema built with
+  `Schema.from_dict` has no class to point at, so its changes fall back to the
+  view function.
 - Blueprints are covered.
 
 ## Files and other frameworks
@@ -224,8 +256,10 @@ source = "file:openapi.yaml"                    # JSON or YAML, relative to the 
 source = "file:myapp.spec:build_spec"           # a callable (or dict) in a module
 ```
 
-Use this for any stack that can produce an OpenAPI 3.0 or 3.1 document.
-Swagger 2.0 is rejected. Attribution is not available for files.
+Use this for any stack that can produce an OpenAPI 3.0 or 3.1 document, or a
+Swagger 2.0 one (converted to OpenAPI 3.0 before comparing: body and form
+parameters, `consumes`/`produces`, `basePath`, security definitions,
+`x-nullable`). Attribution is not available for files.
 
 You can also compare any two documents or snapshots directly:
 
@@ -240,6 +274,6 @@ api-contract diff old.json fastapi:app.main:app
 |---|---|
 | DRF | Serializer attribution reads a private drf-spectacular registry; one serializer change is reported once per operation and media type |
 | django-ninja | Schema classes with the same name are attributed to the view function instead |
-| FastAPI | Mounted sub-apps are not covered |
-| Flask | Only the first flask-smorest `Api` is read; no schema attribution |
-| All | Swagger 2.0 is rejected; see [Limitations](limitations.md) |
+| FastAPI | Models used outside response models and bodies are attributed to the endpoint |
+| Flask | Only the first flask-smorest `Api` is read; `Schema.from_dict` schemas are attributed to the view |
+| All | See [Limitations](limitations.md) |

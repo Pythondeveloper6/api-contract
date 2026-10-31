@@ -40,7 +40,7 @@ SAFE
   POST /api/coupons/  new endpoint
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason "..." --expires 2026-11-24
 ```
 
 When changes are allowed, the id is replaced by the reason and date:
@@ -245,7 +245,7 @@ BREAKING
       (+1 similar changes; --no-group or --format json lists every id)
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason "..." --expires 2026-11-24
 ```
 
 `POST /orders` returns it with status 201, so it is a different location and
@@ -271,7 +271,7 @@ BREAKING
       id: PUT /orders/{}:response:200:total:response-field-removed
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason "..." --expires 2026-11-24
 ```
 
 ## Changelog
