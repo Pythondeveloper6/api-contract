@@ -50,7 +50,7 @@ SAFE
   POST /api/coupons/  new endpoint
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason "..." --expires 2026-11-24
 $ echo $?
 1
 ```

@@ -82,16 +82,28 @@ changes = diff(old, new, rules={"enum-value-added": "safe"})
 [c.severity.value for c in changes]  # ['breaking', 'breaking', 'safe', 'safe']
 ```
 
-### `snapshot(config=None, *, source=None, output=None) -> Path`
+### `snapshot(config=None, *, source=None, output=None, accept=None, expires=None, force=False) -> Path`
 
-Write the normalized schema of `source` (default: the configured one) to
-`output` (default: the configured snapshot path) and return the path.
+Raises `SnapshotRefused` (with `.result`, a `CheckResult`) when an existing
+snapshot would be overwritten with failing changes; `accept="reason"` records
+them in the allowlist instead, `force=True` skips the guard.
+`upgrade_snapshot(config=None, *, path=None)` rewrites a snapshot in the
+current format without loading the app.
+
+Writes the normalized schema of `source` (default: the configured one) to
+`output` (default: the configured snapshot path) and returns the path.
 
 ```python
 path = snapshot(load_config(), source="file:old.yaml")
 ```
 
-### `check(config=None, *, source=None, fail_on=None, today=None) -> CheckResult`
+### `check(config=None, *, source=None, fail_on=None, today=None, against=None, usage=None, unused_severity=None) -> CheckResult`
+
+`against="origin/main"` reads the snapshot from a git revision; `usage` is a
+list of traffic files (see [Beyond the schema](beyond-the-schema.md)).
+`CheckResult.warnings` lists reasons to distrust a green result (an empty or
+untyped schema). Client profiles and frozen paths from the config apply.
+
 
 Diff the current schema against the snapshot and apply the allowlist. `source`
 may also be a loader instance. `fail_on` overrides the config (`"breaking"` or

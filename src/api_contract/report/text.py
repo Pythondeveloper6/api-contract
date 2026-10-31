@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import shlex
 
+from .._safety import clean
 from ..core import CheckResult
 from ..model import Severity
 from .grouping import ChangeGroup, group_changes
@@ -44,6 +45,11 @@ def _change_lines(group: ChangeGroup, *, show_id: bool) -> list[str]:
             lines.append(f"      media types: {', '.join(group.media_types)}")
     for attribution in group.attributions:
         lines.append(f"      at: {attribution}")
+    if change.client:
+        lines.append(f"      client: {change.client}")
+    if change.hits is not None:
+        hits = sum(c.hits or 0 for c in group.changes)
+        lines.append(f"      traffic: {hits} request{'s' if hits != 1 else ''} in the usage sample")
     if change.allowed_by is not None:
         entry = change.allowed_by
         lines.append(f"      allowed until {entry.expires.isoformat()}: {entry.reason}")
@@ -65,6 +71,7 @@ def render(
     group: bool = True,
 ) -> str:
     lines = [summary_line(result)]
+    lines += [f"WARNING: {w}" for w in result.warnings]
     for severity in _SECTIONS:
         changes = [c for c in result.changes if c.severity is severity]
         if not changes:
@@ -75,11 +82,11 @@ def render(
 
     if result.expired:
         lines += ["", "EXPIRED ALLOWLIST ENTRIES (these fail the check)"]
-        for entry in result.expired:
-            lines.append(f"  {entry.id}  expired {entry.expires.isoformat()}: {entry.reason}")
+        for allow in result.expired:
+            lines.append(f"  {allow.id}  expired {allow.expires.isoformat()}: {allow.reason}")
     if result.stale:
         lines += ["", "STALE ALLOWLIST ENTRIES (match no change; consider removing)"]
-        lines += [f"  {entry.id}" for entry in result.stale]
+        lines += [f"  {allow.id}" for allow in result.stale]
 
     failing = result.failing
     if failing:
@@ -89,4 +96,5 @@ def render(
             "Fix the change, or acknowledge it:",
             f'  {hint} --reason "..." --expires {default_expiry(today)}',
         ]
-    return "\n".join(lines) + "\n"
+    # Spec values are untrusted: keep each on its line and printable.
+    return "\n".join(clean(line) for line in lines) + "\n"

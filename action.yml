@@ -1,0 +1,142 @@
+name: api-contract
+description: Fail pull requests that break the API contract, and comment the contract diff.
+author: Mahmoud Ahmed
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  extras:
+    description: >-
+      api-contract extras for your framework (django, ninja, fastapi, apiflask, smorest,
+      flask-openapi3), comma separated. Empty for file: sources.
+    default: ""
+  version:
+    description: pip version specifier for api-contract, e.g. "==0.1.0". Empty for the latest.
+    default: ""
+  install:
+    description: >-
+      Command that installs your project's dependencies (the check imports your app),
+      e.g. "pip install -r requirements.txt". Empty to skip.
+    default: ""
+  python-version:
+    description: Python to set up. Empty to use the runner's Python as it is.
+    default: "3.12"
+  against:
+    description: >-
+      Git revision whose committed snapshot is the baseline. Default on pull requests:
+      origin/<base branch>. Set to "none" to use the working-tree snapshot.
+    default: ""
+  fail-on:
+    description: Lowest failing severity, "breaking" or "potentially-breaking". Empty for the config.
+    default: ""
+  working-directory:
+    description: Directory with the api-contract configuration.
+    default: "."
+  comment:
+    description: Post (and update) the report as a pull request comment ("true" / "false").
+    default: "true"
+  args:
+    description: Extra arguments for `api-contract check` (space separated, no shell syntax).
+    default: ""
+
+outputs:
+  exit-code:
+    description: 0 passed, 1 failing changes, 2 configuration or load error.
+    value: ${{ steps.check.outputs.exit-code }}
+  report:
+    description: Path of the Markdown report.
+    value: ${{ steps.check.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - if: inputs.python-version != ''
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        INSTALL: ${{ inputs.install }}
+        EXTRAS: ${{ inputs.extras }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -n "$INSTALL" ]; then
+          bash -c "$INSTALL"
+        fi
+        spec="api-contract"
+        if [ -n "$EXTRAS" ]; then spec="api-contract[$EXTRAS]"; fi
+        python -m pip install --pre "${spec}${VERSION}"
+
+    - name: Check the API contract
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        AGAINST: ${{ inputs.against }}
+        BASE_REF: ${{ github.base_ref }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        EXTRA_ARGS: ${{ inputs.args }}
+      run: |
+        set +e
+        report="$RUNNER_TEMP/api-contract-report.md"
+        cmd=(api-contract check --format markdown --output "$report")
+        if [ "$AGAINST" = "none" ]; then
+          :
+        elif [ -n "$AGAINST" ]; then
+          cmd+=(--against "$AGAINST")
+        elif [ -n "$BASE_REF" ]; then
+          git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" >/dev/null 2>&1
+          cmd+=(--against "origin/$BASE_REF")
+        fi
+        if [ -n "$FAIL_ON" ]; then cmd+=(--fail-on "$FAIL_ON"); fi
+        # Word-split the extra arguments on purpose; no shell evaluation.
+        read -r -a extra <<< "$EXTRA_ARGS"
+        cmd+=("${extra[@]}")
+        "${cmd[@]}"
+        status=$?
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        if [ -f "$report" ]; then
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        exit 0
+
+    - name: Comment on the pull request
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPORT: ${{ steps.check.outputs.report }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -uo pipefail
+        [ -f "$REPORT" ] || exit 0
+        marker="<!-- api-contract-report -->"
+        body="$(printf '%s\n%s' "$marker" "$(cat "$REPORT")")"
+        existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null | head -n1)"
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$body" >/dev/null \
+            || echo "::warning::could not update the api-contract comment (fork PRs get a read-only token)"
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$body" >/dev/null \
+            || echo "::warning::could not comment on the pull request (fork PRs get a read-only token)"
+        fi
+
+    - name: Result
+      shell: bash
+      env:
+        STATUS: ${{ steps.check.outputs.exit-code }}
+      run: |
+        if [ "$STATUS" = "1" ]; then
+          echo "::error::Breaking API changes found. Fix them, or acknowledge them with 'api-contract allow'."
+        elif [ "$STATUS" != "0" ]; then
+          echo "::error::api-contract could not run (exit $STATUS). See the log above."
+        fi
+        exit "$STATUS"

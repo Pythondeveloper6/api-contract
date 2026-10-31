@@ -16,7 +16,7 @@ from api_contract.cli import main
 from api_contract.config import load_config
 from api_contract.model import ApiContractError
 
-_NEEDS_SOURCE = {"snapshot", "check", "changelog"}
+_NEEDS_SOURCE = {"snapshot", "check", "changelog", "coverage", "init"}
 
 
 def _with_default_source(argv: list[str]) -> list[str]:

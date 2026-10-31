@@ -135,7 +135,7 @@ STALE ALLOWLIST ENTRIES (match no change; consider removing)
   DELETE /api/orders/{}/:endpoint-removed
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason "..." --expires 2026-11-24
 ```
 
 Fix the change, move the date forward, or remove the entry.

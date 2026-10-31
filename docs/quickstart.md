@@ -122,7 +122,7 @@ POTENTIALLY BREAKING
       (+8 similar changes; --no-group or --format json lists every id)
 
 Fix the change, or acknowledge it:
-  manage.py api_contract allow 'GET /api/orders/:response:200:[].total:response-field-removed' --reason \"...\" --expires 2026-11-24
+  manage.py api_contract allow 'GET /api/orders/:response:200:[].total:response-field-removed' --reason "..." --expires 2026-11-24
     ```
 
 === "django-ninja"
@@ -179,7 +179,7 @@ BREAKING
       (+1 similar changes; --no-group or --format json lists every id)
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /orders:response:201:total:response-field-removed' --reason "..." --expires 2026-11-24
     ```
 
 === "Flask"
@@ -218,7 +218,7 @@ BREAKING
       id: GET /orders/{}:response:200:total:response-field-removed
 
 Fix the change, or acknowledge it:
-  api-contract allow 'GET /orders/:response:200:[].total:response-field-removed' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'GET /orders/:response:200:[].total:response-field-removed' --reason "..." --expires 2026-11-24
     ```
 
 === "Any other source"

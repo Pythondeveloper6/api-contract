@@ -139,9 +139,10 @@ class _Operation:
         req = Direction.REQUEST
         for key in sorted(set(old) | set(new)):
             op, np_ = old.get(key), new.get(key)
-            label = _param_label(key, np_ or op)
+            label = _param_label(key, np_ or op or {})
             location = f"param:{key}"
             if op is None:
+                assert np_ is not None  # noqa: S101 - narrowing: one side is set
                 required = np_.get("required") is True
                 kind = "required-param-added" if required else "optional-param-added"
                 word = "required" if required else "optional"
@@ -190,6 +191,7 @@ class _Operation:
         if old is None and new is None:
             return
         if old is None:
+            assert new is not None  # noqa: S101 - narrowing: one side is set
             required = new.get("required") is True
             kind = "required-request-body-added" if required else "optional-request-body-added"
             word = "required" if required else "optional"

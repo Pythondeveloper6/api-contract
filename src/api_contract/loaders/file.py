@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from .._safety import load_yaml
 from .base import BaseLoader, LoaderError, import_string
 
 _SUFFIXES = {".json", ".yaml", ".yml"}
@@ -20,7 +21,7 @@ def read_document(path: Path) -> dict[str, Any]:
     except OSError as exc:
         raise LoaderError(f"cannot read {path}: {exc.strerror or exc}") from exc
     try:
-        data = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
+        data = json.loads(text) if path.suffix == ".json" else load_yaml(text, str(path))
     except (ValueError, yaml.YAMLError) as exc:
         raise LoaderError(
             f"{path} is not valid {path.suffix.lstrip('.').upper() or 'YAML'}: {exc}"

@@ -93,3 +93,31 @@ def test_end_to_end_new_required_request_field(tmp_path, monkeypatch, capsys):
     assert run_cli("snapshot", "--source", "fastapi:fastapi_app:create_app") == 0
     assert run_cli("check", "--source", "fastapi:fastapi_app:stricter") == 1
     assert "note" in capsys.readouterr().out
+
+
+def test_mounted_sub_apps_are_merged():
+    spec = FastAPILoader("fastapi_mounted_app:create_app").load()
+    assert set(spec["paths"]) == {"/orders", "/v1/orders/{order_id}", "/v1/admin/stats"}
+    schemas = spec["components"]["schemas"]
+    # The parent's Order and the admin app's identical Order share one component;
+    # v1's different Order is renamed and its $ref follows.
+    assert {"Order", "Order__v1"} <= set(schemas)
+    assert "currency" in schemas["Order__v1"]["properties"]
+    assert "currency" not in schemas["Order"]["properties"]
+    ref = spec["paths"]["/v1/orders/{order_id}"]["get"]["responses"]["200"]["content"]
+    assert ref["application/json"]["schema"]["$ref"] == "#/components/schemas/Order__v1"
+    stats = spec["paths"]["/v1/admin/stats"]["get"]["responses"]["200"]["content"]
+    assert stats["application/json"]["schema"]["$ref"] == "#/components/schemas/Order"
+
+
+def test_mounted_sub_app_changes_are_found_and_attributed():
+    from api_contract import diff
+
+    old = FastAPILoader("fastapi_mounted_app:create_app").load()
+    loader = FastAPILoader("fastapi_mounted_app:create_changed_app")
+    changes = diff(old, loader.load(), loader=loader)
+    [change] = [c for c in changes if c.kind == "type-changed"]
+    assert change.path == "/v1/orders/{}"
+    assert "get_v1_order" in loader.attribute("GET", "/v1/orders/{order_id}")
+    assert "stats" in loader.attribute("GET", "/v1/admin/stats")
+    assert "Order" in (loader.attribute_schema("Order__v1") or "")

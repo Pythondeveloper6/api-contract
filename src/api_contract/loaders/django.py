@@ -299,9 +299,13 @@ class DjangoLoader(BaseLoader):
         from ninja.utils import normalize_path
 
         api = self._ninja_api
-        for bound in api._get_bound_routers():
-            for p, path_view in bound.path_operations.items():
-                full = "/".join(i for i in (bound.prefix, p) if i)
+        if hasattr(api, "_get_bound_routers"):
+            routers = [(b.prefix, b.path_operations) for b in api._get_bound_routers()]
+        else:  # django-ninja < 1.4 keeps (prefix, router) pairs
+            routers = [(prefix, r.path_operations) for prefix, r in api._routers]
+        for prefix, operations in routers:
+            for p, path_view in operations.items():
+                full = "/".join(i for i in (prefix, p) if i)
                 full = normalize_path("/" + self._ninja_prefix + full)
                 full = re.sub(r"{[^}:]+:", "{", full)
                 if full != path:

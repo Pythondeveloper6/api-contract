@@ -179,9 +179,10 @@ def test_external_and_missing_refs():
         normalize(spec({"/x": {"get": {"responses": ok({"$ref": "#/components/schemas/Nope"})}}}))
 
 
-def test_rejects_swagger_2():
-    with pytest.raises(ApiContractError, match="Swagger 2.0"):
-        normalize({"swagger": "2.0", "paths": {}})
+def test_converts_swagger_2_and_rejects_older_versions():
+    assert normalize({"swagger": "2.0", "paths": {}})["paths"] == {}
+    with pytest.raises(ApiContractError, match="2.0"):
+        normalize({"swagger": "1.2", "paths": {}})
 
 
 def test_changed_external_ref_is_reported():
