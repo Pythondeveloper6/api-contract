@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._safety import clean
 from .normalize import METHODS, RAW_PATH
 
 _NO_BODY = {"204", "205", "304"}
@@ -136,7 +137,7 @@ def render_text(cov: Coverage, *, limit: int = 20) -> str:
         if not items:
             continue
         lines += ["", f"{title} ({len(items)}):"]
-        lines += [f"  {endpoint}" for endpoint in items[:limit]]
+        lines += [f"  {clean(endpoint)}" for endpoint in items[:limit]]
         if len(items) > limit:
             lines.append(f"  ... and {len(items) - limit} more (--format json lists all)")
     return "\n".join(lines) + "\n"

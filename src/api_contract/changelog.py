@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from ._safety import clean, md_text
 from .model import Change, Severity
 
 _SECTIONS = (
@@ -18,7 +19,8 @@ _SECTIONS = (
 
 
 def _endpoint(change: Change) -> str:
-    return f"`{change.method} {change.raw_path or change.path}`"
+    text = clean(f"{change.method} {change.raw_path or change.path}")
+    return f"`` {text} ``" if "`" in text else f"`{text}`"
 
 
 def render_changelog(changes: list[Change], *, title: str = "API changes") -> str:
@@ -41,13 +43,13 @@ def render_changelog(changes: list[Change], *, title: str = "API changes") -> st
                 grouped[_endpoint(change)].append(change)
         for endpoint, items in grouped.items():
             if len(items) == 1:
-                lines.append(f"- {endpoint}: {items[0].message}")
+                lines.append(f"- {endpoint}: {md_text(items[0].message)}")
             else:
                 lines.append(f"- {endpoint}:")
-                lines += [f"  - {c.message}" for c in items]
+                lines += [f"  - {md_text(c.message)}" for c in items]
         lines.append("")
     if deprecated:
         lines += ["### Deprecations", ""]
-        lines += [f"- {_endpoint(c)}: {c.message}" for c in deprecated]
+        lines += [f"- {_endpoint(c)}: {md_text(c.message)}" for c in deprecated]
         lines.append("")
     return "\n".join(lines)

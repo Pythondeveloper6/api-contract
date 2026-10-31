@@ -64,9 +64,11 @@ jobs:
           {install}
           pip install --pre "api-contract[{extra}]"
       - name: Check the API contract
+        env:
+          BASE_REF: ${{{{ github.base_ref }}}}
         run: |
           set +e
-          api-contract check --against "origin/${{{{ github.base_ref }}}}" \\
+          api-contract check --against "origin/$BASE_REF" \\
             --format markdown --output api-contract-report.md
           status=$?
           [ -f api-contract-report.md ] && cat api-contract-report.md >> "$GITHUB_STEP_SUMMARY"

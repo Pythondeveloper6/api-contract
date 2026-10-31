@@ -16,6 +16,7 @@ from typing import Any
 
 import yaml
 
+from .._safety import load_yaml
 from .base import BaseLoader, LoaderError
 
 
@@ -37,8 +38,15 @@ def git_show(rev: str, path: str | Path, *, cwd: Path | None = None) -> str:
 
 def _git(args: list[str], *, cwd: Path | None = None) -> str:
     try:
-        proc = subprocess.run(
-            ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=False
+        # An argument list, never a shell; revisions starting with "-" are refused
+        # by the caller so they can't be read as options.
+        proc = subprocess.run(  # noqa: S603
+            ["git", *args],  # noqa: S607 - git is looked up on PATH like any CLI tool
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
         )
     except FileNotFoundError:
         raise LoaderError("git is not installed or not on PATH") from None
@@ -55,7 +63,7 @@ def _git(args: list[str], *, cwd: Path | None = None) -> str:
 
 def parse_document(text: str, name: str) -> dict[str, Any]:
     try:
-        data = json.loads(text) if name.endswith(".json") else yaml.safe_load(text)
+        data = json.loads(text) if name.endswith(".json") else load_yaml(text, name)
     except (ValueError, yaml.YAMLError) as exc:
         raise LoaderError(f"{name} is not valid JSON/YAML: {exc}") from exc
     if not isinstance(data, dict):

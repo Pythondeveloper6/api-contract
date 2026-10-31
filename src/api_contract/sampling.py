@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from ._safety import clean
 from .model import ApiContractError
 from .normalize import RECURSIVE, REF
 from .usage import _Matcher
@@ -255,4 +256,4 @@ def render_report(report: SampleReport) -> str:
     if report.unmatched:
         lines += ["", "UNDOCUMENTED ENDPOINTS (no matching operation)"]
         lines += [f"  {u}" for u in sorted(set(report.unmatched))]
-    return "\n".join(lines) + "\n"
+    return "\n".join(clean(line) for line in lines) + "\n"

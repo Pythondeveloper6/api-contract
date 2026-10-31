@@ -519,6 +519,13 @@ def main(argv: list[str] | None = None, *, prog: str = "api-contract") -> int:
     except ApiContractError as exc:
         print(f"{prog}: error: {exc}", file=sys.stderr)
         return EXIT_ERROR
+    except RecursionError:
+        print(
+            f"{prog}: error: the document is nested too deeply to compare "
+            f"(more than about {sys.getrecursionlimit() // 10} levels)",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
 
 
 if __name__ == "__main__":  # pragma: no cover

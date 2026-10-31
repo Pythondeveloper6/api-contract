@@ -28,6 +28,7 @@ from typing import Any
 import yaml
 
 from ._io import atomic_write_text
+from ._safety import load_yaml
 from .model import ApiContractError, Change, canonical_id
 
 
@@ -83,7 +84,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
             try:
                 key = self.construct_object(key_node, deep=True)
                 hash(key)
-            except Exception:  # noqa: BLE001 - let the normal path report odd keys
+            except Exception:  # noqa: BLE001, S112 - let the normal path report odd keys
                 continue
             if key in seen:
                 raise yaml.constructor.ConstructorError(
@@ -97,7 +98,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
 
 
 def _safe_load_unique(source: Any) -> Any:
-    return yaml.load(source, Loader=_UniqueKeyLoader)  # noqa: S506 - SafeLoader subclass
+    return load_yaml(source, "the allowlist", loader=_UniqueKeyLoader)
 
 
 def load_allowlist(path: Path) -> list[AllowEntry]:

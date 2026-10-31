@@ -117,18 +117,25 @@ def read_usage(paths: Iterable[str | Path], templates: Iterable[str]) -> UsageSa
     sample = UsageSample()
     for path in paths:
         try:
-            text = Path(path).read_text(encoding="utf-8", errors="replace")
+            # Streamed line by line: access logs can be far larger than memory.
+            handle = Path(path).open(encoding="utf-8", errors="replace")  # noqa: SIM115
         except OSError as exc:
             raise ApiContractError(f"cannot read usage file {path}: {exc.strerror or exc}") from exc
-        for line in text.splitlines():
-            parsed = _parse_line(line)
-            if parsed is None:
-                continue
-            sample.lines += 1
-            method, target, count = parsed
-            template = matcher.match(_path_of(target))
-            if template is None:
-                sample.unmatched += 1
-                continue
-            sample.hits[(method, template)] += count
+        with handle:
+            sample = _count(handle, matcher, sample)
+    return sample
+
+
+def _count(lines: Iterable[str], matcher: _Matcher, sample: UsageSample) -> UsageSample:
+    for line in lines:
+        parsed = _parse_line(line)
+        if parsed is None:
+            continue
+        sample.lines += 1
+        method, target, count = parsed
+        template = matcher.match(_path_of(target))
+        if template is None:
+            sample.unmatched += 1
+            continue
+        sample.hits[(method, template)] += count
     return sample

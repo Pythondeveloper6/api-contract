@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import shlex
 
+from .._safety import clean
 from ..core import CheckResult
 from ..model import Severity
 from .grouping import ChangeGroup, group_changes
@@ -95,4 +96,5 @@ def render(
             "Fix the change, or acknowledge it:",
             f'  {hint} --reason "..." --expires {default_expiry(today)}',
         ]
-    return "\n".join(lines) + "\n"
+    # Spec values are untrusted: keep each on its line and printable.
+    return "\n".join(clean(line) for line in lines) + "\n"

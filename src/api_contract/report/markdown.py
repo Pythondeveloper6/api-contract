@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 import shlex
 
+from .._safety import clean, md_text
 from ..core import CheckResult
 from ..model import Severity
 from .grouping import ChangeGroup, group_changes
@@ -17,14 +19,21 @@ _TITLES = {
 }
 
 
+def _fence(text: str) -> str:
+    """A code fence longer than any backtick run in ``text``, so it can't be closed early."""
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    return "`" * max(3, longest + 1)
+
+
 def _code(text: str) -> str:
+    text = clean(text)
     # Backticks inside inline code would end it early.
     return "`` " + text + " ``" if "`" in text else f"`{text}`"
 
 
 def _item(group: ChangeGroup) -> list[str]:
     change = group.first
-    message = change.message if len(group.changes) == 1 else group.message
+    message = md_text(change.message if len(group.changes) == 1 else group.message)
     if len(group.changes) == 1:
         lines = [
             f"- **{change.method}** {_code(change.raw_path or change.path or '')} — {message}"
@@ -48,7 +57,7 @@ def _item(group: ChangeGroup) -> list[str]:
         lines.append(f"  - traffic: {sum(c.hits or 0 for c in group.changes)} requests")
     if change.allowed_by is not None:
         entry = change.allowed_by
-        lines.append(f"  - allowed until {entry.expires.isoformat()}: {entry.reason}")
+        lines.append(f"  - allowed until {entry.expires.isoformat()}: {md_text(entry.reason)}")
     elif change.severity is not Severity.SAFE:
         lines.append(f"  - id: {_code(change.id)}")
         if len(group.changes) > 1:
@@ -69,7 +78,7 @@ def render(
     status = "passed" if result.ok else "failed"
     lines = [f"### {summary_line(result)} — {status}"]
     if result.warnings:
-        lines += [""] + [f"> **Warning:** {w}" for w in result.warnings]
+        lines += [""] + [f"> **Warning:** {md_text(w)}" for w in result.warnings]
     for severity in (Severity.BREAKING, Severity.POTENTIALLY_BREAKING, Severity.SAFE):
         changes = [c for c in result.changes if c.severity is severity]
         if not changes:
@@ -85,7 +94,8 @@ def render(
     if result.expired:
         lines += ["", "#### Expired allowlist entries", ""]
         lines += [
-            f"- {_code(e.id)} expired {e.expires.isoformat()}: {e.reason}" for e in result.expired
+            f"- {_code(e.id)} expired {e.expires.isoformat()}: {md_text(e.reason)}"
+            for e in result.expired
         ]
     if result.stale:
         lines += ["", "#### Stale allowlist entries", ""]
@@ -98,8 +108,8 @@ def render(
             "",
             "Fix the change, or acknowledge it:",
             "",
-            "```sh",
-            f'{hint} --reason "..." --expires {default_expiry(today)}',
-            "```",
+            _fence(hint) + "sh",
+            clean(f'{hint} --reason "..." --expires {default_expiry(today)}'),
+            _fence(hint),
         ]
     return "\n".join(lines) + "\n"

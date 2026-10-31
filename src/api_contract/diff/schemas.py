@@ -747,6 +747,8 @@ def _variant_details(members: list[dict[str, Any]]) -> list[str]:
         if type_ and types.count(type_) == 1 and type_ not in names:
             details.append(type_)
             continue
-        digest = hashlib.sha1(canonical_json(strip_internal(member)).encode()).hexdigest()[:8]
+        digest = hashlib.sha1(  # a short stable label, not security
+            canonical_json(strip_internal(member)).encode(), usedforsecurity=False
+        ).hexdigest()[:8]
         details.append(f"{type_ or 'schema'}#{digest}")
     return details
