@@ -2,38 +2,27 @@
 
 Notes for changing `api-contract` itself, rather than using it.
 
-## Set up: three virtual environments
+## Set up
 
-The core never imports a web framework, and the Django and FastAPI/Flask
-loaders are developed against separate installs. So the repository uses three
-environments, each with the same editable install of the package plus a
-different test extra. All three are ignored by git (`.venv*/`).
-
-| Environment | Install | What it runs |
-|---|---|---|
-| `.venv` (core) | `pip install -e '.[dev]'` | Core tests only; any accidental framework import fails here. Also used for lint and docs |
-| `.venv-web` | `pip install -e '.[dev,test-web]'` | FastAPI, APIFlask, flask-smorest and flask-openapi3 loader tests |
-| `.venv-django` | `pip install -e '.[dev,test-django]'` | The Django loader, against the DRF and django-ninja example projects in `tests/apps/` |
+All extras install side by side, so one virtual environment runs everything:
 
 ```bash
-python -m venv .venv         && .venv/bin/pip install -e '.[dev]'
-python -m venv .venv-web     && .venv-web/bin/pip install -e '.[dev,test-web]'
-python -m venv .venv-django  && .venv-django/bin/pip install -e '.[dev,test-django]'
+make install      # .venv with the dev, test-web, test-django and docs extras
+make test         # the whole suite
+make all          # lint, type check, tests, docs build
 ```
 
-Python 3.10 or newer. CI runs the core tests on 3.10 to 3.13 and the web and
-Django suites on 3.12.
+Other targets: `make lint`, `make typecheck` (mypy), `make cov` (coverage
+with the CI threshold), `make docs`, `make build`, `make bench`.
 
-## Tests
+Python 3.10 or newer. CI runs the core tests (no framework installed, so an
+accidental framework import fails) on 3.10 to 3.14 and on Windows and macOS,
+every loader with coverage on 3.12, and the whole suite against the lowest
+versions the extras allow (`uv pip install --resolution lowest-direct`).
 
-Run the suite in each environment. Tests that need a framework that is not
-installed are skipped, so each environment covers a different part:
-
-```bash
-.venv/bin/pytest -q
-.venv-web/bin/pytest -q
-.venv-django/bin/pytest -q
-```
+Tests that need a framework that is not installed are skipped, so a core-only
+environment (`pip install -e '.[dev]'`) is a quick way to check that the core
+still imports no framework.
 
 ### Golden cases
 
