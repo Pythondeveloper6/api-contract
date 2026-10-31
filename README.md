@@ -164,6 +164,7 @@ Full documentation: **<https://pythondeveloper6.github.io/api-contract/>** (an M
 - [Continuous integration](https://pythondeveloper6.github.io/api-contract/ci/): `init`, the GitHub Action, `--against`, pytest, GitLab CI, pre-commit, expiry reminders.
 - [Beyond the schema](https://pythondeveloper6.github.io/api-contract/beyond-the-schema/): coverage, traffic, response sampling.
 - [Troubleshooting](https://pythondeveloper6.github.io/api-contract/troubleshooting/): apps that won't import, `--against` in CI, refused snapshots.
+- [Deployment](https://pythondeveloper6.github.io/api-contract/deployment/) and [Upgrading](https://pythondeveloper6.github.io/api-contract/upgrading/): where to run it, pinning, snapshot upgrades.
 - [Rules](https://pythondeveloper6.github.io/api-contract/rules/): all 74 change kinds and their default severities.
 - [Python API](https://pythondeveloper6.github.io/api-contract/python-api/): the public API and writing a custom loader.
 - [Limitations](https://pythondeveloper6.github.io/api-contract/limitations/): what it does not catch, and the roadmap.
@@ -171,8 +172,31 @@ Full documentation: **<https://pythondeveloper6.github.io/api-contract/>** (an M
 - [Contributing](https://pythondeveloper6.github.io/api-contract/contributing/): dev setup, tests, golden cases, building the docs.
 
 Changes between versions are in [`CHANGELOG.md`](https://github.com/Pythondeveloper6/api-contract/blob/main/CHANGELOG.md).
+A runnable end-to-end example is in
+[`examples/orders-contract`](https://github.com/Pythondeveloper6/api-contract/tree/main/examples/orders-contract).
 A complete GitHub Actions workflow is in
 [`examples/github-actions.yml`](https://github.com/Pythondeveloper6/api-contract/blob/main/examples/github-actions.yml).
+
+## Security
+
+The loader imports your application, so run it only on code you trust, and give
+CI read-only permissions. It makes no network calls. See the
+[security page](https://pythondeveloper6.github.io/api-contract/security/) and
+[`SECURITY.md`](https://github.com/Pythondeveloper6/api-contract/blob/main/SECURITY.md)
+to report a vulnerability.
+
+## Limits
+
+It compares declared schemas, so behaviour the schema does not describe
+(semantics, side effects, undeclared fields) is not caught. This is an alpha:
+see [Limitations](https://pythondeveloper6.github.io/api-contract/limitations/)
+and the [stability policy](https://pythondeveloper6.github.io/api-contract/stability/).
+
+## Contributing
+
+Issues and pull requests are welcome. `make install && make test lint typecheck docs`
+sets up and checks everything; details in the
+[contributing guide](https://pythondeveloper6.github.io/api-contract/contributing/).
 
 ## License
 

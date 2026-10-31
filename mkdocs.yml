@@ -107,6 +107,8 @@ nav:
       - Allowlist: allowlist.md
       - Reports: reports.md
       - Continuous integration: ci.md
+      - Deployment: deployment.md
+      - Upgrading: upgrading.md
       - Beyond the schema: beyond-the-schema.md
       - Explaining a change: explain.md
       - Troubleshooting: troubleshooting.md
