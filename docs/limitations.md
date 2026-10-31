@@ -22,8 +22,12 @@ describes what your API really does.
 - **Mounted and secondary apps.** FastAPI sub-apps added with `app.mount()` are
   not in the parent's schema, and only the first of several flask-smorest `Api`
   objects is read. See [Frameworks](frameworks.md) for the workarounds.
-- **Swagger 2.0** documents are rejected. Only OpenAPI 3.0 and 3.1 are
-  supported.
+- **Swagger 2.0** documents are converted to OpenAPI 3.0 before comparison.
+  The conversion covers what affects the wire contract (body and form
+  parameters, `consumes`/`produces`, `basePath`, security definitions,
+  `x-nullable`); a few rarely used details are approximated: `tsv`
+  `collectionFormat` is treated as `csv`, nested `items.collectionFormat` is
+  dropped, and path-item `$ref`s are not followed.
 - **Ignored keys.** Documentation-only keys (`description`, `example`, `x-*`,
   ...) are deliberately left out of the comparison. Changing the meaning of an
   endpoint in its description is not a change. See

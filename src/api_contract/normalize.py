@@ -1,4 +1,4 @@
-"""Turn an OpenAPI 3.0/3.1 document into a canonical form that is cheap to diff.
+"""Turn an OpenAPI 3.0/3.1 (or Swagger 2.0) document into a canonical form that is cheap to diff.
 
 The normalized document is what the snapshot file stores. It keeps only what
 affects the wire contract, in a shape where equal contracts compare equal:
@@ -56,6 +56,14 @@ RECURSIVE = "recursive_schemas"
 EXTERNAL_REF = "x-api-contract-external-ref"
 RAW_PATH = "x-api-contract-path"
 PARAM_NAME = "x-api-contract-name"
+# Operation-level bookkeeping: tags and the ``x-sunset`` date (for client
+# profiles and deprecation windows), and the handler the snapshot was taken
+# from (so a removed endpoint can still say where it used to live).
+TAGS = "x-api-contract-tags"
+SUNSET = "x-api-contract-sunset"
+HANDLER = "x-api-contract-handler"
+# Bump when the snapshot layout changes in a way older readers can't handle.
+# Snapshots with a higher number are rejected with an upgrade hint.
 SNAPSHOT_FORMAT = 1
 
 METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
@@ -100,6 +108,23 @@ def is_normalized(doc: Any) -> bool:
     return isinstance(doc, dict) and FORMAT_MARKER in doc
 
 
+def snapshot_format(doc: dict[str, Any]) -> int:
+    """The ``format`` number a snapshot was written with (1 if unreadable)."""
+    marker = doc.get(FORMAT_MARKER)
+    value = marker.get("format", 1) if isinstance(marker, dict) else 1
+    return value if isinstance(value, int) else 1
+
+
+def check_snapshot_format(doc: dict[str, Any], where: str = "snapshot") -> None:
+    """Refuse snapshots written by a newer api-contract: their layout may differ."""
+    found = snapshot_format(doc)
+    if found > SNAPSHOT_FORMAT:
+        raise ApiContractError(
+            f"{where} uses snapshot format {found}, but this api-contract reads up to format "
+            f"{SNAPSHOT_FORMAT}; upgrade api-contract (pip install -U api-contract)"
+        )
+
+
 def normalize(doc: dict[str, Any], *, ignore_keys: Iterable[str] | None = None) -> dict[str, Any]:
     """Return the canonical form of an OpenAPI document (or of a snapshot).
 
@@ -113,9 +138,15 @@ def normalize(doc: dict[str, Any], *, ignore_keys: Iterable[str] | None = None) 
     ignore = tuple(DEFAULT_IGNORE_KEYS if ignore_keys is None else ignore_keys)
     normalizer = _Normalizer(doc, ignore)
     if is_normalized(doc):
+        check_snapshot_format(doc)
         return _sorted(normalizer.renormalize())
     if "swagger" in doc:
-        raise ApiContractError("Swagger 2.0 documents are not supported; convert to OpenAPI 3")
+        # Swagger 2.0 (flask-restx, older generators, partner specs) is converted
+        # to the equivalent OpenAPI 3.0 first; anything else is rejected there.
+        from .swagger2 import convert_swagger2
+
+        doc = convert_swagger2(doc)
+        normalizer = _Normalizer(doc, ignore)
     version = str(doc.get("openapi", ""))
     if version and not version.startswith("3."):
         raise ApiContractError(f"unsupported OpenAPI version {version!r}")
@@ -239,6 +270,12 @@ class _Normalizer:
         }
         if op.get("deprecated") is True:
             out["deprecated"] = True
+        tags = op.get("tags")
+        if isinstance(tags, list) and tags:
+            out[TAGS] = sorted({str(t) for t in tags})
+        sunset = op.get("x-sunset")
+        if sunset is not None:
+            out[SUNSET] = sunset.isoformat() if hasattr(sunset, "isoformat") else str(sunset)
         if "requestBody" in op:
             body = self.deref(op["requestBody"])
             if isinstance(body, dict):
