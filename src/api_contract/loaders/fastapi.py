@@ -1,15 +1,21 @@
 """FastAPI loader: import an app (or app factory) and read ``app.openapi()``.
 
-Mounted sub-applications (``app.mount("/v1", sub_app)``) are not followed:
-their routes are absent from the parent's OpenAPI document, so they are
-neither loaded nor attributed. Point a separate source at the sub-app.
+Mounted FastAPI sub-applications (``app.mount("/v1", sub_app)``) are absent
+from the parent's OpenAPI document, so the loader merges them in: their paths
+get the mount prefix, and their components join the parent's. A component
+whose name is already taken by a *different* schema is renamed
+``<Name>__<prefix>`` (``Order__v1``) and its references follow. Other mounted
+ASGI apps (static files, ...) are skipped.
 """
 
 from __future__ import annotations
 
+import copy
 import inspect
 import os
+import re
 import typing
+from collections.abc import Iterator
 from typing import Any
 
 from api_contract.loaders.base import BaseLoader, LoaderError, describe_callable, import_string
@@ -59,28 +65,32 @@ class FastAPILoader(BaseLoader):
         return obj
 
     def load(self) -> dict:
-        return self.app.openapi()
+        doc = copy.deepcopy(self.app.openapi())
+        for prefix, sub_app in _mounted_apps(self.app):
+            _merge(doc, copy.deepcopy(sub_app.openapi()), prefix)
+        return doc
 
-    def attribute(self, method: str, path: str) -> str | None:
+    def _routes(self) -> Iterator[tuple[str, Any]]:
+        """``(mount prefix, APIRoute)`` for the app and every mounted FastAPI app."""
         from fastapi.routing import APIRoute
 
+        apps = [("", self.app), *_mounted_apps(self.app)]
+        for prefix, app in apps:
+            for route in app.routes:
+                if isinstance(route, APIRoute):
+                    yield prefix, route
+
+    def attribute(self, method: str, path: str) -> str | None:
         method = method.upper()
-        for route in self.app.routes:
-            if (
-                isinstance(route, APIRoute)
-                and route.path_format == path
-                and method in route.methods
-            ):
+        for prefix, route in self._routes():
+            if prefix + route.path_format == path and method in route.methods:
                 return describe_callable(route.endpoint)
         return None
 
     def attribute_schema(self, component_name: str) -> str | None:
-        from fastapi.routing import APIRoute
-
         base = component_name.removesuffix("-Input").removesuffix("-Output")
-        for route in self.app.routes:
-            if not isinstance(route, APIRoute):
-                continue
+        base = re.sub(r"__[A-Za-z0-9_]+$", "", base)  # Order__v1: renamed on merge
+        for _, route in self._routes():
             roots = [route.response_model]
             roots += [p.field_info.annotation for p in route.dependant.body_params]
             for root in roots:
@@ -94,3 +104,55 @@ class FastAPILoader(BaseLoader):
                         name = model.__qualname__.split("<locals>.")[-1]
                         return f"{model.__module__}.{name} ({os.path.relpath(file)}:{line})"
         return None
+
+
+def _mounted_apps(app: Any, prefix: str = "") -> list[tuple[str, Any]]:
+    """Every FastAPI app mounted under ``app`` (recursively), with its full prefix."""
+    from fastapi import FastAPI
+    from starlette.routing import Mount
+
+    found = []
+    for route in getattr(app, "routes", ()):
+        if isinstance(route, Mount) and isinstance(route.app, FastAPI):
+            full = prefix + route.path.rstrip("/")
+            found.append((full, route.app))
+            found += _mounted_apps(route.app, full)
+    return found
+
+
+def _merge(doc: dict[str, Any], sub: dict[str, Any], prefix: str) -> None:
+    """Add ``sub``'s paths (under ``prefix``) and components to ``doc``."""
+    tag = re.sub(r"[^A-Za-z0-9]+", "_", prefix).strip("_") or "root"
+    components = doc.setdefault("components", {})
+    renames: dict[str, str] = {}
+    for section, items in (sub.get("components") or {}).items():
+        target = components.setdefault(section, {})
+        for name, value in items.items():
+            if name in target and target[name] != value:
+                renames[f"#/components/{section}/{name}"] = f"#/components/{section}/{name}__{tag}"
+    if renames:
+        sub = _rewrite_refs(sub, renames)
+    for section, items in (sub.get("components") or {}).items():
+        target = components.setdefault(section, {})
+        for name, value in items.items():
+            new_name = renames.get(f"#/components/{section}/{name}", "").rpartition("/")[2]
+            target[new_name or name] = value
+    top_security = sub.get("security")
+    paths = doc.setdefault("paths", {})
+    for path, item in (sub.get("paths") or {}).items():
+        if top_security is not None:
+            for key, op in item.items():
+                if isinstance(op, dict) and key != "parameters" and "security" not in op:
+                    op["security"] = top_security
+        paths[prefix + (path if path.startswith("/") else "/" + path)] = item
+
+
+def _rewrite_refs(node: Any, renames: dict[str, str]) -> Any:
+    if isinstance(node, dict):
+        out = {k: _rewrite_refs(v, renames) for k, v in node.items()}
+        if isinstance(out.get("$ref"), str) and out["$ref"] in renames:
+            out["$ref"] = renames[out["$ref"]]
+        return out
+    if isinstance(node, list):
+        return [_rewrite_refs(v, renames) for v in node]
+    return node
