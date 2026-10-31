@@ -3,6 +3,10 @@
 Blueprints are covered because attribution goes through ``app.url_map``, which
 includes every registered blueprint. Apps that serve several flask-smorest
 ``Api`` objects only load the first one registered.
+
+Schema attribution finds the marshmallow ``Schema`` (APIFlask, flask-smorest)
+or pydantic model (flask-openapi3) a component was generated from, by name:
+apispec names a component after its schema class minus a ``Schema`` suffix.
 """
 
 from __future__ import annotations
@@ -10,7 +14,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from api_contract.loaders.base import BaseLoader, LoaderError, describe_callable, import_string
+from api_contract.loaders.base import (
+    BaseLoader,
+    LoaderError,
+    describe_callable,
+    describe_class,
+    import_string,
+)
 
 _CONVERTER = re.compile(r"<(?:[^:<>]+:)?([^<>]+)>")
 
@@ -58,17 +68,19 @@ class FlaskLoader(BaseLoader):
                 "pip install 'api-contract[apiflask]', 'api-contract[smorest]' or "
                 "'api-contract[flask-openapi3]' (the 'flask' extra installs only Flask). "
                 "For anything else, export the spec "
-                "with 'file:module:callable' (a callable returning the OpenAPI dict)."
+                "with 'file:module:callable' (a callable returning the OpenAPI dict), or "
+                f"check endpoints and methods only with 'flask-routes:{self.target}'."
             )
         return spec
 
     def _find_spec(self, app: Any) -> dict | None:
         # 1. APIFlask: ``app.spec`` is a dict (or a YAML string if configured so).
+        api_flask: Any
         try:
-            from apiflask import APIFlask
+            from apiflask import APIFlask as api_flask
         except ImportError:
-            APIFlask = None  # noqa: N806
-        if APIFlask is not None and isinstance(app, APIFlask):
+            api_flask = None
+        if api_flask is not None and isinstance(app, api_flask):
             spec = app.spec
             if isinstance(spec, str):
                 import yaml
@@ -83,11 +95,12 @@ class FlaskLoader(BaseLoader):
                 return entry["ext_obj"].spec.to_dict()
 
         # 3. flask-openapi3: ``api_doc`` is a property (older versions: a method).
+        open_api: Any
         try:
-            from flask_openapi3 import OpenAPI
+            from flask_openapi3 import OpenAPI as open_api
         except ImportError:
-            OpenAPI = None  # noqa: N806
-        if OpenAPI is not None and isinstance(app, OpenAPI):
+            open_api = None
+        if open_api is not None and isinstance(app, open_api):
             doc = app.api_doc
             if callable(doc):
                 doc = doc()
@@ -118,3 +131,51 @@ class FlaskLoader(BaseLoader):
             if handler is not None:
                 return describe_callable(handler)
         return describe_callable(view)
+
+    def attribute_schema(self, component_name: str) -> str | None:
+        # flask-openapi3 builds schemas from pydantic models; APIFlask and
+        # flask-smorest from marshmallow schemas. Never cross the two: another
+        # library's class with the same name would be a wrong answer.
+        is_openapi3 = type(self.app).__module__.split(".")[0] == "flask_openapi3"
+        found = (_pydantic_models if is_openapi3 else _marshmallow_schemas)(component_name)
+        if not found:
+            return None
+        # Prefer classes from the app's own package: the registries are process-wide.
+        home = self.target.partition(":")[0].split(".")[0]
+        own = [c for c in found if c.__module__.split(".")[0] == home]
+        return describe_class((own or found)[0])
+
+
+def _marshmallow_schemas(name: str) -> list[Any]:
+    try:
+        from marshmallow import class_registry
+    except ImportError:
+        return []
+    registry = getattr(class_registry, "_registry", None)
+    if not isinstance(registry, dict):
+        return []
+    found: list[Any] = []
+    for candidate in (f"{name}Schema", name):
+        for cls in registry.get(candidate, ()):
+            top = getattr(cls, "__module__", "").split(".")[0]
+            if top != "marshmallow" and cls not in found:
+                found.append(cls)
+    return found
+
+
+def _pydantic_models(name: str) -> list[Any]:
+    try:
+        from pydantic import BaseModel
+    except ImportError:
+        return []
+    stack, seen, found = list(BaseModel.__subclasses__()), set(), []
+    while stack:
+        cls = stack.pop()
+        if cls in seen:
+            continue
+        seen.add(cls)
+        module = getattr(cls, "__module__", "")
+        if cls.__name__ == name and module.split(".")[0] not in ("pydantic", "flask_openapi3"):
+            found.append(cls)
+        stack.extend(cls.__subclasses__())
+    return found

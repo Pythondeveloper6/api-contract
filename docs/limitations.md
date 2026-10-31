@@ -14,16 +14,27 @@ describes what your API really does.
   inspected. A change to a model field only appears if it changes the generated
   schema (for example through a `ModelSerializer` field). Changes to
   validation in `save()`, signals, or the database never appear.
-- **Runtime behaviour that does not match the schema** is invisible. Auth
-  logic in the view body, rate limits, pagination defaults and error payloads
-  not described in the OpenAPI document are not compared.
+- **Runtime behaviour that does not match the schema** is invisible to the
+  diff. Auth logic in the view body, rate limits, pagination defaults and
+  error payloads not described in the OpenAPI document are not compared.
+  `api-contract coverage` shows how much the schema declares, and
+  `verify-samples` checks recorded responses against it; see
+  [Beyond the schema](beyond-the-schema.md).
 - **Semantic changes with the same shape.** A field that still has type
   `number` but now returns cents instead of dollars is not a schema change.
-- **Mounted and secondary apps.** FastAPI sub-apps added with `app.mount()` are
-  not in the parent's schema, and only the first of several flask-smorest `Api`
-  objects is read. See [Frameworks](frameworks.md) for the workarounds.
-- **Swagger 2.0** documents are rejected. Only OpenAPI 3.0 and 3.1 are
-  supported.
+- **Secondary apps.** Only the first of several flask-smorest `Api` objects is
+  read. (FastAPI sub-apps added with `app.mount()` are merged in.)
+- **Heavily shared components.** A component that would be inlined more than
+  200 times, or sits more than 40 references deep, is stored once in the
+  snapshot (like a recursive one) and compared once, where it is first
+  reached; a change inside it is reported at that first use rather than at
+  every endpoint.
+- **Swagger 2.0** documents are converted to OpenAPI 3.0 before comparison.
+  The conversion covers what affects the wire contract (body and form
+  parameters, `consumes`/`produces`, `basePath`, security definitions,
+  `x-nullable`); a few rarely used details are approximated: `tsv`
+  `collectionFormat` is treated as `csv`, nested `items.collectionFormat` is
+  dropped, and path-item `$ref`s are not followed.
 - **Ignored keys.** Documentation-only keys (`description`, `example`, `x-*`,
   ...) are deliberately left out of the comparison. Changing the meaning of an
   endpoint in its description is not a change. See
@@ -35,20 +46,15 @@ reports `schema-changed` (potentially breaking) instead of dropping it. See
 
 ## Attribution gaps
 
-Attribution is best effort and never affects the result. Flask apps get no
-schema-level attribution, removed endpoints are never attributed, and DRF
-attribution depends on a private drf-spectacular registry. See
+Attribution is best effort and never affects the result. DRF attribution
+depends on a private drf-spectacular registry, Flask schemas created with
+`Schema.from_dict` have no class to name, and removed endpoints are attributed
+only when the snapshot was taken by a version that records handlers. See
 [Frameworks](frameworks.md#attribution).
 
 ## Roadmap
 
-Planned for phase 2 (none of this exists yet):
-
-- `--against <git ref>`: build the baseline schema from a git ref instead of a
-  committed snapshot.
-- A GitHub Action that comments the contract diff on pull requests.
-- Per-version checks, so `/v1/` can be frozen while `/v2/` evolves.
-- Deprecation dates: mark a field deprecated with a removal date, and fail when
-  it is removed early.
-- Runtime response sampling in staging, to catch responses that do not match
-  the schema.
+- Field-level deprecation dates (`x-sunset` works on operations today).
+- A standalone binary for CI images without Python (today: `pipx run` or
+  `uvx` with the `file:` and `git:` sources).
+- A browser playground for trying two specs without installing anything.

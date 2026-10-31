@@ -64,9 +64,9 @@ def group_changes(changes: list[Change], *, group: bool = True) -> list[ChangeGr
     """Group in order of first appearance. With ``group=False`` every change is its own entry."""
     if not group:
         return [ChangeGroup([c]) for c in changes]
-    groups: dict[tuple, ChangeGroup] = {}
+    groups: dict[tuple[object, ...], ChangeGroup] = {}
     for change in changes:
-        key = (
+        key: tuple[object, ...] = (
             change.severity,
             change.kind,
             split_location(change.location)[0],

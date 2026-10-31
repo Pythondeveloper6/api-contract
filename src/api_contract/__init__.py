@@ -11,7 +11,17 @@ Public API (the CLI is a thin layer over it)::
 
 from .allowlist import AllowEntry
 from .config import Config, load_config
-from .core import CheckResult, attribute, check, diff, load_spec, normalize, snapshot
+from .core import (
+    CheckResult,
+    SnapshotRefused,
+    attribute,
+    check,
+    diff,
+    load_spec,
+    normalize,
+    snapshot,
+    upgrade_snapshot,
+)
 from .loaders.base import BaseLoader, Loader, LoaderError, get_loader
 from .model import ApiContractError, Change, Direction, Severity
 from .rules import DEFAULT_RULES, Rules
@@ -31,6 +41,7 @@ __all__ = [
     "LoaderError",
     "Rules",
     "Severity",
+    "SnapshotRefused",
     "__version__",
     "attribute",
     "check",
@@ -40,4 +51,5 @@ __all__ = [
     "load_spec",
     "normalize",
     "snapshot",
+    "upgrade_snapshot",
 ]

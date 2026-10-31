@@ -66,7 +66,8 @@ def test_no_supported_library_raises(tmp_path, monkeypatch):
     )
     monkeypatch.syspath_prepend(str(tmp_path))
     with pytest.raises(
-        LoaderError, match=r"APIFlask.*flask-smorest.*flask-openapi3.*file:module:callable"
+        LoaderError,
+        match=r"APIFlask.*flask-smorest.*flask-openapi3.*file:module:callable.*flask-routes:",
     ):
         FlaskLoader("plain_flask_app:create_app").load()
 
@@ -95,3 +96,86 @@ def test_end_to_end_breaking_change_is_attributed(case, tmp_path, monkeypatch, c
     out = capsys.readouterr().out
     assert "total" in out
     assert f"{module}." in out  # attributed to a handler in the example app
+
+
+def test_attribute_schema_finds_the_schema_class(case, monkeypatch):
+    module, *_ = case
+    monkeypatch.chdir(Path(__file__).parent.parent)
+    loader = FlaskLoader(f"{module}:create_app")
+    loader.load()
+    found = loader.attribute_schema("OrderIn")
+    assert found is not None and found.startswith(f"{module}.OrderIn")
+    assert f"(tests/apps/{module}.py:" in found
+    assert loader.attribute_schema("NoSuchComponent") is None
+
+
+ROUTES_APP = """
+from flask import Flask
+from flask.views import MethodView
+
+
+def create_app(with_delete=True):
+    app = Flask(__name__)
+
+    @app.get("/items")
+    def list_items():
+        return []
+
+    @app.route("/items/<int:item_id>", methods=["GET", "PUT"])
+    def item(item_id):
+        return {}
+
+    @app.get("/files/<path:name>/<uuid:key>/<x>")
+    def files(name, key, x):
+        return {}
+
+    if with_delete:
+        @app.delete("/items/<int:item_id>")
+        def delete_item(item_id):
+            return "", 204
+
+    return app
+
+
+def create_smaller_app():
+    return create_app(with_delete=False)
+
+
+app = create_app()
+"""
+
+
+@pytest.fixture
+def routes_app(tmp_path, monkeypatch):
+    (tmp_path / "routes_app.py").write_text(ROUTES_APP)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    yield
+    sys.modules.pop("routes_app", None)
+
+
+def test_flask_routes_inventory(routes_app):
+    from api_contract import get_loader
+
+    loader = get_loader("flask-routes:routes_app:app")
+    doc = loader.load()
+    assert doc["x-api-contract-inventory"] is True
+    assert set(doc["paths"]) == {"/items", "/items/{item_id}", "/files/{name}/{key}/{x}"}
+    assert set(doc["paths"]["/items/{item_id}"]) == {"get", "put", "delete"}
+    params = doc["paths"]["/files/{name}/{key}/{x}"]["get"]["parameters"]
+    assert [p["schema"] for p in params] == [
+        {"type": "string"},
+        {"type": "string", "format": "uuid"},
+        {"type": "string"},
+    ]
+    assert doc["paths"]["/items/{item_id}"]["get"]["parameters"][0]["schema"] == {"type": "integer"}
+    assert not any("static" in p for p in doc["paths"])
+    assert loader.attribute("PUT", "/items/{item_id}").startswith("routes_app.item (")
+
+
+def test_flask_routes_detects_removed_methods(routes_app, capsys):
+    assert run_cli("snapshot", "--source", "flask-routes:routes_app:create_app") == 0
+    capsys.readouterr()
+    assert run_cli("check", "--source", "flask-routes:routes_app:create_smaller_app") == 1
+    out = capsys.readouterr().out
+    assert "DELETE /items/{item_id}  method removed" in out

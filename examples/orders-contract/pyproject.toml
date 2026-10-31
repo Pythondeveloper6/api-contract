@@ -1,0 +1,4 @@
+[tool.api-contract]
+source = "file:specs/v2.yaml"
+snapshot = "api-contract.json"
+allowlist = "api-contract-allow.yaml"

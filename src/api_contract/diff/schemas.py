@@ -349,7 +349,8 @@ class SchemaDiff:
             if new_never:
                 kind = self._dir("type-changed", "response-type-narrowed")
                 verb = "narrowed" if kind == "response-type-narrowed" else "changed"
-                old_t, new_t = sorted(schema_types(old)) or "any", "never"
+                old_t: list[str] | str = sorted(schema_types(old)) or "any"
+                new_t: list[str] | str = "never"
             else:
                 kind = self._dir("request-type-widened", "type-changed")
                 verb = "widened" if kind == "request-type-widened" else "changed"
@@ -377,13 +378,13 @@ class SchemaDiff:
         verb = {"request-type-widened": "widened", "response-type-narrowed": "narrowed"}.get(
             kind, "changed"
         )
-        old_t, new_t = sorted(ot), sorted(nt)
+        old_types, new_types = sorted(ot), sorted(nt)
         self._emit(
             kind,
             pointer,
-            old_t,
-            new_t,
-            f"{subject} type {verb}: {fmt(old_t)} -> {fmt(new_t)}",
+            old_types,
+            new_types,
+            f"{subject} type {verb}: {fmt(old_types)} -> {fmt(new_types)}",
             component,
         )
         return not (ot and nt) or _overlap(ot, nt)
@@ -472,11 +473,10 @@ class SchemaDiff:
         if bool(old.get("uniqueItems")) != bool(new.get("uniqueItems")):
             checks.append(("uniqueItems", bool(new.get("uniqueItems"))))
 
-        for key, tightened in checks:
+        for key, direction in checks:
             o, n = old.get(key), new.get(key)
-            if tightened is None:
-                # Unknown: report whichever reading hurts this direction.
-                tightened = self.request
+            # Unknown direction: report whichever reading hurts this direction.
+            tightened = self.request if direction is None else direction
             word = "tightened" if tightened else "loosened"
             kind = f"{self.direction.value}-constraint-{word}"
             self._emit(
@@ -747,6 +747,8 @@ def _variant_details(members: list[dict[str, Any]]) -> list[str]:
         if type_ and types.count(type_) == 1 and type_ not in names:
             details.append(type_)
             continue
-        digest = hashlib.sha1(canonical_json(strip_internal(member)).encode()).hexdigest()[:8]
+        digest = hashlib.sha1(  # a short stable label, not security
+            canonical_json(strip_internal(member)).encode(), usedforsecurity=False
+        ).hexdigest()[:8]
         details.append(f"{type_ or 'schema'}#{digest}")
     return details

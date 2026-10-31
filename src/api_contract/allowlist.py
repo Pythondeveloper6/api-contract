@@ -27,6 +27,8 @@ from typing import Any
 
 import yaml
 
+from ._io import atomic_write_text
+from ._safety import load_yaml
 from .model import ApiContractError, Change, canonical_id
 
 
@@ -82,7 +84,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
             try:
                 key = self.construct_object(key_node, deep=True)
                 hash(key)
-            except Exception:  # noqa: BLE001 - let the normal path report odd keys
+            except Exception:  # noqa: BLE001, S112 - let the normal path report odd keys
                 continue
             if key in seen:
                 raise yaml.constructor.ConstructorError(
@@ -96,7 +98,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
 
 
 def _safe_load_unique(source: Any) -> Any:
-    return yaml.load(source, Loader=_UniqueKeyLoader)  # noqa: S506 - SafeLoader subclass
+    return load_yaml(source, "the allowlist", loader=_UniqueKeyLoader)
 
 
 def load_allowlist(path: Path) -> list[AllowEntry]:
@@ -185,7 +187,7 @@ def add_entry(path: Path, entry: AllowEntry) -> None:
         except yaml.YAMLError:
             ok = False
         if ok:
-            path.write_text(candidate, encoding="utf-8")
+            atomic_write_text(path, candidate)
             return
     entries = [e for e in entries if canonical_id(e.id) != canonical_id(entry.id)] + [entry]
     body = yaml.safe_dump(
@@ -195,4 +197,32 @@ def add_entry(path: Path, entry: AllowEntry) -> None:
         width=1000,
         indent=2,
     )
-    path.write_text(_HEADER + body, encoding="utf-8")
+    atomic_write_text(path, _HEADER + body)
+
+
+def add_entries(path: Path, entries: list[AllowEntry]) -> None:
+    """Add several entries (same id: the later one wins)."""
+    for entry in entries:
+        add_entry(path, entry)
+
+
+def expiring(
+    entries: list[AllowEntry], within: dt.timedelta, today: dt.date | None = None
+) -> tuple[list[AllowEntry], list[AllowEntry]]:
+    """``(already expired, expiring within the window)``, each sorted by date."""
+    today = today or dt.date.today()
+    expired = sorted((e for e in entries if e.expired(today)), key=lambda e: e.expires)
+    soon = sorted(
+        (e for e in entries if not e.expired(today) and e.expires <= today + within),
+        key=lambda e: e.expires,
+    )
+    return expired, soon
+
+
+def parse_duration(value: str) -> dt.timedelta:
+    """``14d`` / ``2w`` / ``14`` (days) -> timedelta."""
+    match = re.fullmatch(r"\s*(\d+)\s*([dw]?)\s*", value or "")
+    if not match:
+        raise ApiContractError(f"invalid duration {value!r} (use e.g. 14d or 2w)")
+    days = int(match.group(1)) * (7 if match.group(2) == "w" else 1)
+    return dt.timedelta(days=days)

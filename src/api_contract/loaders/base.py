@@ -2,6 +2,8 @@
 
 A *source* is ``"<kind>:<target>"``: ``file:openapi.yaml``,
 ``fastapi:app.main:app``, ``flask:wsgi:app``, ``django`` (no target),
+``git:origin/main:openapi.yaml`` (a file at a git revision),
+``flask-routes:wsgi:app`` (endpoints only, from a Flask URL map),
 ``django:ninja:proj.api:api``. The kind picks a loader class from
 :data:`LOADERS`; the target (everything after the first colon, possibly ``""``)
 is passed to its constructor untouched. A source with no known kind is treated
@@ -61,6 +63,23 @@ class Loader(Protocol):
         ...
 
 
+def describe_class(cls: Any) -> str | None:
+    """Return ``"module.Class (relative/file.py:LINE)"`` for a class, or None."""
+    try:
+        file = inspect.getsourcefile(cls)
+        _, line = inspect.getsourcelines(cls)
+    except (TypeError, OSError):
+        return None
+    if file is None:
+        return None
+    try:
+        rel = os.path.relpath(file)
+    except ValueError:  # different drive on Windows
+        rel = file
+    name = cls.__qualname__.split("<locals>.")[-1]
+    return f"{cls.__module__}.{name} ({rel}:{line})"
+
+
 def describe_callable(func: Any) -> str | None:
     """Return ``"module.func (relative/file.py:LINE)"`` for ``func``, or None."""
     try:
@@ -107,13 +126,20 @@ class BaseLoader:
 # Imported lazily so the core never imports a web framework it doesn't need.
 LOADERS: dict[str, str] = {
     "file": "api_contract.loaders.file:FileLoader",
+    "git": "api_contract.loaders.git:GitLoader",
     "fastapi": "api_contract.loaders.fastapi:FastAPILoader",
     "flask": "api_contract.loaders.flask:FlaskLoader",
+    "flask-routes": "api_contract.loaders.flask_routes:FlaskRoutesLoader",
     "django": "api_contract.loaders.django:DjangoLoader",
 }
 
 # kind -> extra name, for the "pip install api-contract[<extra>]" hint.
-EXTRAS: dict[str, str] = {"fastapi": "fastapi", "flask": "flask", "django": "django"}
+EXTRAS: dict[str, str] = {
+    "fastapi": "fastapi",
+    "flask": "flask",
+    "flask-routes": "flask",
+    "django": "django",
+}
 
 
 # Missing top-level module -> the extra that installs it. Wins over EXTRAS,

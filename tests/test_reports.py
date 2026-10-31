@@ -146,7 +146,7 @@ def test_markdown_report_shape():
 def test_json_report_shape():
     data = json.loads(FORMATS["json"](_result()))
     assert data == json_report.as_dict(_result()) | {"changes": data["changes"]}
-    assert set(data) == {"version", "ok", "fail_on", "summary", "changes", "allowlist"}
+    assert set(data) == {"version", "ok", "fail_on", "summary", "changes", "allowlist", "warnings"}
     assert data["summary"] == {
         "total": 4,
         "breaking": 2,

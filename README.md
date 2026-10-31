@@ -2,7 +2,7 @@
 
 Catch breaking API changes in CI, for Django, FastAPI and Flask.
 
-![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB?logo=python&logoColor=white)
+![Python 3.10–3.14](https://img.shields.io/badge/python-3.10%E2%80%933.14-3776AB?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
 
@@ -21,8 +21,8 @@ serializer, model or handler behind each change.
 | Django REST framework | drf-spectacular |
 | Django | django-ninja |
 | FastAPI | FastAPI itself |
-| Flask | APIFlask, flask-smorest, flask-openapi3 |
-| Anything else | an OpenAPI 3.0/3.1 JSON or YAML file |
+| Flask | APIFlask, flask-smorest, flask-openapi3; a route inventory for plain Flask |
+| Anything else | an OpenAPI 3.0/3.1 or Swagger 2.0 JSON or YAML file |
 
 ## Example
 
@@ -50,7 +50,7 @@ SAFE
   POST /api/coupons/  new endpoint
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /api/orders/:request:currency:required-request-field-added' --reason "..." --expires 2026-11-24
 $ echo $?
 1
 ```
@@ -69,7 +69,7 @@ With a Django, FastAPI or Flask project, each change also gets an `at:` line:
 pip install --pre "api-contract[django]"
 ```
 
-The `--pre` is needed while the only release is the pre-release `0.1.0a1`.
+The `--pre` is needed while releases are pre-releases (`0.1.0aN`).
 
 Alternatively, install a tagged release straight from git:
 
@@ -104,6 +104,13 @@ Every framework follows the same steps: add `[tool.api-contract]` to
 `pyproject.toml`, write a snapshot, commit it, and run `check` in CI. FastAPI
 as the example:
 
+```bash
+api-contract init          # detects the framework, writes the config, the first
+                           # snapshot and a GitHub Actions workflow
+```
+
+or by hand:
+
 ```toml
 # pyproject.toml
 [tool.api-contract]
@@ -111,9 +118,13 @@ source = "fastapi:app.main:app"    # module:FastAPI instance, or an app factory
 ```
 
 ```bash
-api-contract snapshot      # writes api-contract.json; commit it
-api-contract check         # exit 1 on a breaking change
+api-contract snapshot                    # writes api-contract.json; commit it
+api-contract check --against origin/main # exit 1 on a breaking change vs the target branch
 ```
+
+`snapshot` refuses to overwrite a snapshot with breaking changes unless you
+say why (`--accept "reason"`, recorded in the allowlist), so a break can't be
+approved by regenerating the file.
 
 When a change is intentional, acknowledge it instead of weakening the rules:
 
@@ -124,6 +135,20 @@ api-contract allow "GET /api/orders/{id}/:response:200:total:type-changed" \
 
 Django (`manage.py api_contract`), Flask and plain `file:` sources work the
 same way; see the [Quickstart](https://pythondeveloper6.github.io/api-contract/quickstart/).
+
+## In CI and beyond
+
+- **GitHub Action**: `uses: Pythondeveloper6/api-contract@<tag>` checks against
+  the base branch, writes the job summary and keeps one PR comment updated.
+- **pytest**: `pytest --api-contract`, or the `api_contract_check` fixture.
+- **Reports**: text, Markdown, JSON, SARIF (code scanning), GitHub annotations,
+  JUnit.
+- **Client profiles and frozen versions**: stricter rules for the mobile app's
+  endpoints, `/v1/*` frozen while `/v2/` evolves, removal allowed after an
+  `x-sunset` date.
+- **Beyond the schema**: `coverage` (how much is declared), `--usage
+  access.log` (traffic per change), `verify-samples` (recorded responses vs the
+  contract), `explain <change>` (how to ship it compatibly).
 
 ## Documentation
 
@@ -136,15 +161,42 @@ Full documentation: **<https://pythondeveloper6.github.io/api-contract/>** (an M
 - [Command line](https://pythondeveloper6.github.io/api-contract/cli/): every command and flag, exit codes, `manage.py api_contract`.
 - [Allowlist](https://pythondeveloper6.github.io/api-contract/allowlist/): file format, wildcards, expiry, stale entries.
 - [Reports](https://pythondeveloper6.github.io/api-contract/reports/): text, Markdown and JSON, grouping, the changelog.
-- [Continuous integration](https://pythondeveloper6.github.io/api-contract/ci/): GitHub Actions, GitLab CI, pre-commit.
+- [Continuous integration](https://pythondeveloper6.github.io/api-contract/ci/): `init`, the GitHub Action, `--against`, pytest, GitLab CI, pre-commit, expiry reminders.
+- [Beyond the schema](https://pythondeveloper6.github.io/api-contract/beyond-the-schema/): coverage, traffic, response sampling.
+- [Troubleshooting](https://pythondeveloper6.github.io/api-contract/troubleshooting/): apps that won't import, `--against` in CI, refused snapshots.
+- [Deployment](https://pythondeveloper6.github.io/api-contract/deployment/) and [Upgrading](https://pythondeveloper6.github.io/api-contract/upgrading/): where to run it, pinning, snapshot upgrades.
 - [Rules](https://pythondeveloper6.github.io/api-contract/rules/): all 74 change kinds and their default severities.
 - [Python API](https://pythondeveloper6.github.io/api-contract/python-api/): the public API and writing a custom loader.
 - [Limitations](https://pythondeveloper6.github.io/api-contract/limitations/): what it does not catch, and the roadmap.
+- [Stability policy](https://pythondeveloper6.github.io/api-contract/stability/), [Performance](https://pythondeveloper6.github.io/api-contract/performance/), [Security](https://pythondeveloper6.github.io/api-contract/security/), [Coming from oasdiff](https://pythondeveloper6.github.io/api-contract/oasdiff/).
 - [Contributing](https://pythondeveloper6.github.io/api-contract/contributing/): dev setup, tests, golden cases, building the docs.
 
 Changes between versions are in [`CHANGELOG.md`](https://github.com/Pythondeveloper6/api-contract/blob/main/CHANGELOG.md).
+A runnable end-to-end example is in
+[`examples/orders-contract`](https://github.com/Pythondeveloper6/api-contract/tree/main/examples/orders-contract).
 A complete GitHub Actions workflow is in
 [`examples/github-actions.yml`](https://github.com/Pythondeveloper6/api-contract/blob/main/examples/github-actions.yml).
+
+## Security
+
+The loader imports your application, so run it only on code you trust, and give
+CI read-only permissions. It makes no network calls. See the
+[security page](https://pythondeveloper6.github.io/api-contract/security/) and
+[`SECURITY.md`](https://github.com/Pythondeveloper6/api-contract/blob/main/SECURITY.md)
+to report a vulnerability.
+
+## Limits
+
+It compares declared schemas, so behaviour the schema does not describe
+(semantics, side effects, undeclared fields) is not caught. This is an alpha:
+see [Limitations](https://pythondeveloper6.github.io/api-contract/limitations/)
+and the [stability policy](https://pythondeveloper6.github.io/api-contract/stability/).
+
+## Contributing
+
+Issues and pull requests are welcome. `make install && make test lint typecheck docs`
+sets up and checks everything; details in the
+[contributing guide](https://pythondeveloper6.github.io/api-contract/contributing/).
 
 ## License
 

@@ -28,6 +28,8 @@ enum-value-added = "safe"
 | `rules` | table | `{}` | Severity overrides, see [rules](#rules) |
 | `ignore_keys` | list of strings | `["description", "summary", "example", "examples", "title", "externalDocs", "x-*"]` | The **full** list of schema keys left out of the comparison. Replaces the defaults |
 | `extra_ignore_keys` | list of strings | `[]` | Keys added to the ignored list (the defaults, or your `ignore_keys`) |
+| `frozen` | list of path globs | `[]` | Paths where every change fails, see [frozen versions](#frozen) |
+| `clients` | table of tables | `{}` | Per-client rules and thresholds, see [client profiles](#clients) |
 
 Unknown keys are an error (exit code 2), so a typo such as `sourc` is caught
 instead of silently ignored. There are no other settings.
@@ -108,6 +110,50 @@ If both are set, the result is `ignore_keys` plus `extra_ignore_keys`.
     run, so adding keys to the list takes effect immediately. Keys that were
     already dropped when the snapshot was written cannot come back: after
     *removing* keys from the list, run `api-contract snapshot` again.
+
+### `frozen` {#frozen}
+
+Path globs (`*` matches anything, including `/`) whose endpoints must not change
+at all. Every change under a frozen path is reported as **breaking**, even an
+addition, with `[frozen: <glob>]` after the message. Use it to freeze a
+published API version while the next one evolves:
+
+```toml
+[tool.api-contract]
+frozen = ["/api/v1/*"]
+```
+
+### `clients` {#clients}
+
+Different clients tolerate different changes. An app-store mobile client can't
+be upgraded in lockstep with the server; a web front end deployed with it can.
+A client profile names the endpoints a client uses, by path glob or by OpenAPI
+tag, and gives them their own failure threshold and rule overrides:
+
+```toml
+[tool.api-contract.clients.mobile]
+paths = ["/api/mobile/*"]          # and/or
+tags = ["mobile"]                  # operation tags in the schema
+fail_on = "potentially-breaking"   # stricter than the project's fail_on
+rules = { response-enum-value-added = "breaking" }
+
+[tool.api-contract.clients.partners]
+paths = ["/partner/*"]
+fail_on = "potentially-breaking"
+```
+
+The first profile that matches an endpoint applies. Its `rules` are layered on
+top of the project-wide `[tool.api-contract.rules]`, and its `fail_on` replaces
+the project's for those endpoints only. Reports show `client: <name>` under
+each affected change, and the JSON report has a `client` field.
+
+### Deprecation windows: `x-sunset`
+
+No setting needed: mark an operation `deprecated: true` and give it an
+`x-sunset: YYYY-MM-DD` extension. Removing it **after** that date is reported
+as safe ("sunset has passed"); removing it **before** stays breaking and says
+how many days early it is. Removing a deprecated operation with no sunset date
+stays breaking. This turns "deprecate, wait, remove" into something CI checks.
 
 ## `api-contract.toml`
 

@@ -57,7 +57,7 @@ SAFE
   POST /echo  new response field "currency"
 
 Fix the change, or acknowledge it:
-  api-contract allow 'POST /echo:request:currency:required-request-field-added' --reason \"...\" --expires 2026-11-24
+  api-contract allow 'POST /echo:request:currency:required-request-field-added' --reason "..." --expires 2026-11-24
 ```
 
 Each edit appears twice, once per direction, with a different severity: the new

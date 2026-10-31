@@ -1,0 +1,45 @@
+# Copy to .github/workflows/api-contract-expiry.yml.
+#
+# Every Monday, lists allowlist entries that expired or expire within two
+# weeks, and opens (or updates) one issue about them. An expired entry fails
+# `api-contract check`, so this gives a heads-up before it happens.
+name: API contract allowlist expiry
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  expiry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install --pre api-contract
+      - name: Open or update the reminder issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if api-contract expiring --within 14d --fail > expiring.txt; then
+            echo "Nothing expires soon."
+            exit 0
+          fi
+          title="API contract allowlist entries expiring"
+          number="$(gh issue list --repo "$REPO" --state open --search "$title in:title" \
+            --json number --jq '.[0].number')"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$REPO" --body-file expiring.txt
+          else
+            gh issue create --repo "$REPO" --title "$title" --body-file expiring.txt
+          fi

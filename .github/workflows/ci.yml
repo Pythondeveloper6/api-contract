@@ -16,37 +16,45 @@ jobs:
   core:
     # The core must work with no web framework installed, so this job
     # installs only the dev extra: an accidental framework import fails here.
-    name: Core / Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: Core / ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          # A CLI must also work where paths use backslashes and files lock.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # the --against tests read history
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
         run: pip install -e '.[dev]'
-      - name: Lint
-        run: |
-          ruff check .
-          ruff format --check .
       - name: Test
         run: pytest -q
 
   lint:
-    # Lint once, on one Python, instead of in every matrix cell.
-    name: Lint
+    # Lint and type-check once, on one Python, instead of in every matrix cell.
+    name: Lint and types
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -55,52 +63,75 @@ jobs:
       - run: |
           ruff check .
           ruff format --check .
+      - run: mypy
 
-  web:
-    # FastAPI and Flask loaders (plus APIFlask, flask-smorest, flask-openapi3).
-    name: Web frameworks / Python 3.12
+  frameworks:
+    # Every loader (FastAPI, Flask variants, DRF, Ninja) in one environment, with
+    # a coverage threshold for the whole package.
+    name: Frameworks + coverage / Python 3.12
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install
-        run: pip install -e '.[dev,test-web]'
+        run: pip install -e '.[dev,test-web,test-django]'
       - name: Test
-        run: pytest -q
+        run: pytest -q --cov=api_contract --cov-report=term-missing:skip-covered --cov-fail-under=75
 
-  django:
-    # Django loader, against both the DRF and the Ninja example projects.
-    name: Django / Python 3.12
+  minimum-versions:
+    # The oldest framework releases the extras allow, on the oldest Python.
+    name: Minimum versions / Python 3.10
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.10"
           cache: pip
           cache-dependency-path: pyproject.toml
-      - name: Install
-        run: pip install -e '.[dev,test-django]'
+      - name: Install the lowest versions the extras allow
+        run: |
+          pip install uv
+          uv pip install --system --resolution lowest-direct -e '.[dev,test-web,test-django]'
       - name: Test
         run: pytest -q
+
+  audit:
+    # Known vulnerabilities in the dependency tree of a full install.
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[test-web,test-django]' pip-audit
+      - run: pip-audit --skip-editable
 
   package:
     name: Package
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
       - run: pip install build twine
       - run: python -m build
-      - run: twine check dist/*
+      - run: twine check --strict dist/*

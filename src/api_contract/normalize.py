@@ -1,4 +1,4 @@
-"""Turn an OpenAPI 3.0/3.1 document into a canonical form that is cheap to diff.
+"""Turn an OpenAPI 3.0/3.1 (or Swagger 2.0) document into a canonical form that is cheap to diff.
 
 The normalized document is what the snapshot file stores. It keeps only what
 affects the wire contract, in a shape where equal contracts compare equal:
@@ -56,6 +56,14 @@ RECURSIVE = "recursive_schemas"
 EXTERNAL_REF = "x-api-contract-external-ref"
 RAW_PATH = "x-api-contract-path"
 PARAM_NAME = "x-api-contract-name"
+# Operation-level bookkeeping: tags and the ``x-sunset`` date (for client
+# profiles and deprecation windows), and the handler the snapshot was taken
+# from (so a removed endpoint can still say where it used to live).
+TAGS = "x-api-contract-tags"
+SUNSET = "x-api-contract-sunset"
+HANDLER = "x-api-contract-handler"
+# Bump when the snapshot layout changes in a way older readers can't handle.
+# Snapshots with a higher number are rejected with an upgrade hint.
 SNAPSHOT_FORMAT = 1
 
 METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
@@ -100,6 +108,23 @@ def is_normalized(doc: Any) -> bool:
     return isinstance(doc, dict) and FORMAT_MARKER in doc
 
 
+def snapshot_format(doc: dict[str, Any]) -> int:
+    """The ``format`` number a snapshot was written with (1 if unreadable)."""
+    marker = doc.get(FORMAT_MARKER)
+    value = marker.get("format", 1) if isinstance(marker, dict) else 1
+    return value if isinstance(value, int) else 1
+
+
+def check_snapshot_format(doc: dict[str, Any], where: str = "snapshot") -> None:
+    """Refuse snapshots written by a newer api-contract: their layout may differ."""
+    found = snapshot_format(doc)
+    if found > SNAPSHOT_FORMAT:
+        raise ApiContractError(
+            f"{where} uses snapshot format {found}, but this api-contract reads up to format "
+            f"{SNAPSHOT_FORMAT}; upgrade api-contract (pip install -U api-contract)"
+        )
+
+
 def normalize(doc: dict[str, Any], *, ignore_keys: Iterable[str] | None = None) -> dict[str, Any]:
     """Return the canonical form of an OpenAPI document (or of a snapshot).
 
@@ -113,9 +138,15 @@ def normalize(doc: dict[str, Any], *, ignore_keys: Iterable[str] | None = None) 
     ignore = tuple(DEFAULT_IGNORE_KEYS if ignore_keys is None else ignore_keys)
     normalizer = _Normalizer(doc, ignore)
     if is_normalized(doc):
+        check_snapshot_format(doc)
         return _sorted(normalizer.renormalize())
     if "swagger" in doc:
-        raise ApiContractError("Swagger 2.0 documents are not supported; convert to OpenAPI 3")
+        # Swagger 2.0 (flask-restx, older generators, partner specs) is converted
+        # to the equivalent OpenAPI 3.0 first; anything else is rejected there.
+        from .swagger2 import convert_swagger2
+
+        doc = convert_swagger2(doc)
+        normalizer = _Normalizer(doc, ignore)
     version = str(doc.get("openapi", ""))
     if version and not version.startswith("3."):
         raise ApiContractError(f"unsupported OpenAPI version {version!r}")
@@ -166,7 +197,16 @@ class _Normalizer:
         # Bumped whenever a cycle marker is emitted. A resolved $ref whose
         # expansion emitted none doesn't depend on the ref stack, so it's cached.
         self._cycles = 0
-        self.recursive = _recursive_components(doc) if not is_normalized(doc) else set()
+        self.heavy_order: list[str] = []
+        if is_normalized(doc):
+            self.recursive: set[str] = set()
+        else:
+            self.recursive = _recursive_components(doc)
+            # Shared components whose full inline expansion would be huge (a deep
+            # DAG of references grows exponentially when inlined) are stored once,
+            # exactly like recursive ones.
+            self.heavy_order = _heavy_components(doc, self.recursive)
+            self.recursive |= set(self.heavy_order)
         self.defs: dict[str, dict[str, Any]] = {}
 
     # -- helpers -----------------------------------------------------------
@@ -206,6 +246,13 @@ class _Normalizer:
     # -- document ----------------------------------------------------------
 
     def document(self) -> dict[str, Any]:
+        # Heavy components are defined innermost first, so defining one never
+        # recurses through a long chain of others (the recursion limit).
+        for name in self.heavy_order:
+            if name not in self.defs:
+                ref = _component_ref(self.doc, name)
+                self.defs[name] = {}
+                self.defs[name] = {**self.schema(self.lookup(ref)), COMPONENT: name}
         global_security = self.doc.get("security")
         paths: dict[str, Any] = {}
         for raw_path in sorted(self.doc.get("paths") or {}):
@@ -218,7 +265,11 @@ class _Normalizer:
                 op = item.get(method)
                 if isinstance(op, dict):
                     out_item[method] = self.operation(op, common, global_security, raw_path)
-        return {FORMAT_MARKER: {"format": SNAPSHOT_FORMAT}, "paths": paths, RECURSIVE: self.defs}
+        return {
+            FORMAT_MARKER: {"format": SNAPSHOT_FORMAT},
+            "paths": paths,
+            RECURSIVE: _reachable(paths, self.defs),
+        }
 
     def operation(
         self, op: dict[str, Any], common: list[Any], global_security: Any, raw_path: str
@@ -239,6 +290,12 @@ class _Normalizer:
         }
         if op.get("deprecated") is True:
             out["deprecated"] = True
+        tags = op.get("tags")
+        if isinstance(tags, list) and tags:
+            out[TAGS] = sorted({str(t) for t in tags})
+        sunset = op.get("x-sunset")
+        if sunset is not None:
+            out[SUNSET] = sunset.isoformat() if hasattr(sunset, "isoformat") else str(sunset)
         if "requestBody" in op:
             body = self.deref(op["requestBody"])
             if isinstance(body, dict):
@@ -634,3 +691,105 @@ def _recursive_components(doc: dict[str, Any]) -> set[str]:
                 parent = work[-1][0]
                 low[parent] = min(low[parent], low[node])
     return recursive
+
+
+# Inlined component copies, or nesting depth of references, above which a
+# shared component is stored once instead of inlined. Both are counted on the
+# reference graph only, so docs-only edits or 3.0-vs-3.1 spellings of the same
+# schema never move a component between inlined and stored.
+HEAVY_LIMIT = 200
+DEPTH_LIMIT = 40
+
+
+def _ref_occurrences(node: Any) -> list[str]:
+    """Component names referenced in ``node``, once per occurrence."""
+    refs: list[str] = []
+    stack = [node]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            ref = item.get("$ref")
+            name = _component_name(ref) if isinstance(ref, str) else None
+            if name:
+                refs.append(name)
+                continue
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return sorted(refs)
+
+
+def _component_ref(doc: dict[str, Any], name: str) -> str:
+    if name in ((doc.get("components") or {}).get("schemas") or {}):
+        return f"#/components/schemas/{name}"
+    return f"#/definitions/{name}"
+
+
+def _markers(node: Any) -> set[str]:
+    found: set[str] = set()
+    stack = [node]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            if isinstance(item.get(REF), str):
+                found.add(item[REF])
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return found
+
+
+def _reachable(paths: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
+    """The stored definitions some operation actually uses (directly or not)."""
+    todo = list(_markers(paths))
+    seen: set[str] = set()
+    while todo:
+        name = todo.pop()
+        if name in seen or name not in defs:
+            continue
+        seen.add(name)
+        todo.extend(_markers(defs[name]))
+    return {name: d for name, d in defs.items() if name in seen}
+
+
+def _heavy_components(doc: dict[str, Any], recursive: set[str]) -> list[str]:
+    """Components that would be inlined more than :data:`HEAVY_LIMIT` times
+    (counting nested copies), or whose reference chain is deeper than
+    :data:`DEPTH_LIMIT` (which would exhaust the recursion limit while
+    inlining), innermost first.
+
+    Sizes are computed bottom-up over the (acyclic, once recursive components
+    are cut) reference graph; a component marked heavy counts as one node for
+    the components that use it, so only the ones that really blow up are cut.
+    """
+    schemas = dict((doc.get("definitions") or {}).items())
+    schemas.update(((doc.get("components") or {}).get("schemas") or {}).items())
+    uses: dict[str, list[str]] = {}
+    for name, schema in schemas.items():
+        uses[name] = [r for r in _ref_occurrences(schema) if r in schemas and r not in recursive]
+    size: dict[str, int] = {}
+    depth: dict[str, int] = {}
+    heavy: set[str] = set()
+    order: list[str] = []
+    for root in sorted(schemas):
+        if root in size or root in recursive:
+            continue
+        work = [(root, False)]
+        while work:
+            name, expanded = work.pop()
+            if name in size:
+                continue
+            if not expanded:
+                work.append((name, True))
+                work.extend((r, False) for r in uses[name] if r not in size)
+                continue
+            inline = [r for r in uses[name] if r not in heavy]
+            total = 1 + sum(size.get(r, 1) for r in inline)
+            deepest = 1 + max((depth.get(r, 1) for r in inline), default=0)
+            if total > HEAVY_LIMIT or deepest > DEPTH_LIMIT:
+                heavy.add(name)
+                order.append(name)
+                total, deepest = 1, 1
+            size[name] = total
+            depth[name] = deepest
+    return order

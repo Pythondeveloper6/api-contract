@@ -1,15 +1,21 @@
 # Command line
 
-`api-contract` has five commands. Options such as `--format` and `--config` go
-**after** the command: `api-contract check --format markdown`.
+Options such as `--format` and `--config` go **after** the command:
+`api-contract check --format markdown`.
 
 | Command | What it does |
 |---|---|
+| [`init`](#init) | Set the project up: config, first snapshot, CI workflow |
 | [`snapshot`](#snapshot) | Write the normalized current schema to the snapshot file |
 | [`check`](#check) | Compare the current schema with the snapshot, apply the allowlist |
 | [`diff`](#diff) | Compare any two specs, snapshots or sources |
 | [`allow`](#allow) | Add an allowlist entry |
 | [`changelog`](#changelog) | Write a consumer-facing Markdown changelog |
+| [`coverage`](#coverage) | How much of the API the schema describes |
+| [`explain`](#explain) | What a change kind means and how to ship it compatibly |
+| [`expiring`](#expiring) | Allowlist entries that expired or expire soon |
+| [`verify-samples`](#verify-samples) | Check recorded responses against the contract |
+| [`import-oasdiff`](#import-oasdiff) | Convert oasdiff ignore and severity files |
 
 ```text
 usage: api-contract [-h] [--version] COMMAND ...
@@ -42,6 +48,18 @@ Options shared by several commands:
 | `--fail-on {breaking,potentially-breaking}` | `check`, `diff` | Lowest severity that fails. Default: the config's `fail_on`, else `breaking` |
 | `--output FILE`, `-o FILE` | `snapshot`, `check`, `diff`, `changelog` | Write to this file instead of stdout (for `snapshot`, instead of the configured snapshot path) |
 | `--no-group` | `check`, `diff` | List every change separately. See [grouping](reports.md#grouping) |
+| `--verbose`, `-v` | all | Log progress and timings to stderr (`-vv` for more) |
+
+`--format` also accepts `sarif`, `github` and `junit`; see [Reports](reports.md).
+
+## init
+
+Detects the framework, writes `[tool.api-contract]` (to `pyproject.toml`, or
+`api-contract.toml` if there is none), takes the first snapshot and writes
+`.github/workflows/api-contract.yml`. Existing files are never overwritten.
+`--source` overrides the detection; `--no-snapshot`, `--no-workflow` skip
+steps; `--pre-commit` also adds a `pre-push` hook to `.pre-commit-config.yaml`.
+See [Continuous integration](ci.md#set-it-up-in-one-command).
 
 ## snapshot
 
@@ -66,6 +84,21 @@ options:
 $ api-contract snapshot --source file:old.yaml
 Wrote /path/to/project/api-contract.json
 ```
+
+When a snapshot already exists, `snapshot` first checks the new schema against
+it. If that would fail `check` (and the allowlist doesn't cover it), it prints
+the report and **refuses** to overwrite (exit 1): regenerating the snapshot must
+not quietly approve a break.
+
+| Option | Meaning |
+|---|---|
+| `--accept REASON` | Approve the failing changes: add an allowlist entry for each, with this reason, then write the snapshot |
+| `--expires YYYY-MM-DD` | Expiry for those entries (default: in 30 days) |
+| `--force` | Overwrite without a record |
+| `--upgrade` | Rewrite the existing snapshot in the current snapshot format, without loading the app |
+
+`snapshot` also records each operation's handler, so a later removal can still
+be attributed.
 
 ## check
 
@@ -94,6 +127,17 @@ options:
                         grouping changes that differ only by endpoint or media
                         type (json is never grouped)
 ```
+
+Extra `check` options:
+
+| Option | Meaning |
+|---|---|
+| `--against REV` | Read the snapshot as committed at a git revision (`origin/main`) instead of the working tree. See [CI](ci.md#comparing-with-the-target-branch-against) |
+| `--usage FILE` | Access log or JSON-lines traffic sample (repeatable): each change gets a request count. See [Beyond the schema](beyond-the-schema.md#what-do-clients-actually-use-usage) |
+| `--unused-severity SEVERITY` | With `--usage`, downgrade changes to endpoints with no traffic |
+
+`check` warns on stderr when the schema has no operations, or none declares a
+typed response.
 
 ## diff
 
@@ -186,6 +230,52 @@ options:
 
 See [Reports](reports.md#changelog) for an example.
 
+## coverage
+
+```bash
+api-contract coverage [--format text|json] [--min-typed PCT] [--min-errors PCT]
+```
+
+Share of operations with a typed success response, a declared error response
+and declared auth; exit 1 under a `--min-*` threshold. See
+[Beyond the schema](beyond-the-schema.md).
+
+## explain
+
+```bash
+api-contract explain response-field-removed
+api-contract explain 'GET /api/orders/{}/:response:200:total:type-changed'
+```
+
+See [Explaining a change](explain.md).
+
+## expiring
+
+```bash
+api-contract expiring [--within 14d] [--format text|json|slack] [--fail] [--allowlist PATH]
+```
+
+Lists expired entries and entries expiring within the window (`14d`, `2w`).
+`--fail` exits 1 when anything is listed. See
+[CI](ci.md#allowlist-expiry-reminders).
+
+## verify-samples
+
+```bash
+api-contract verify-samples FILE... [--against REV] [--format text|json] [--fail-undocumented]
+```
+
+Checks recorded responses (JSON lines or HAR) against the snapshot, or the
+schema of `--source`. See [Beyond the schema](beyond-the-schema.md#do-real-responses-match-verify-samples).
+
+## import-oasdiff
+
+```bash
+api-contract import-oasdiff [--severity-levels FILE] [--err-ignore FILE --reason TEXT --expires DATE] [--write]
+```
+
+See [api-contract and oasdiff](oasdiff.md).
+
 ## Exit codes
 
 | Code | Meaning |
@@ -194,7 +284,9 @@ See [Reports](reports.md#changelog) for an example.
 | 1 | Failing changes, or an [expired allowlist entry](allowlist.md#expiry) |
 | 2 | Configuration or load error: no snapshot yet, bad config, app failed to import, framework not installed |
 
-`snapshot`, `allow` and `changelog` return 0 on success and 2 on error.
+`snapshot` returns 1 when it refuses to overwrite failing changes. `coverage`,
+`expiring --fail` and `verify-samples` return 1 when their check fails.
+`allow`, `changelog`, `explain` and `init` return 0 on success and 2 on error.
 Argument errors (a missing `--expires`, an unknown `--format`) also return 2.
 Errors are printed to stderr as `api-contract: error: <message>`, for example:
 
