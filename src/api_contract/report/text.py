@@ -44,6 +44,11 @@ def _change_lines(group: ChangeGroup, *, show_id: bool) -> list[str]:
             lines.append(f"      media types: {', '.join(group.media_types)}")
     for attribution in group.attributions:
         lines.append(f"      at: {attribution}")
+    if change.client:
+        lines.append(f"      client: {change.client}")
+    if change.hits is not None:
+        hits = sum(c.hits or 0 for c in group.changes)
+        lines.append(f"      traffic: {hits} request{'s' if hits != 1 else ''} in the usage sample")
     if change.allowed_by is not None:
         entry = change.allowed_by
         lines.append(f"      allowed until {entry.expires.isoformat()}: {entry.reason}")
@@ -65,6 +70,7 @@ def render(
     group: bool = True,
 ) -> str:
     lines = [summary_line(result)]
+    lines += [f"WARNING: {w}" for w in result.warnings]
     for severity in _SECTIONS:
         changes = [c for c in result.changes if c.severity is severity]
         if not changes:

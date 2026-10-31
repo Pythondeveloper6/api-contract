@@ -23,6 +23,7 @@ def as_dict(result: CheckResult) -> dict[str, Any]:
             "failing": len(result.failing),
         },
         "changes": [c.to_dict() for c in result.changes],
+        "warnings": list(result.warnings),
         "allowlist": {
             "expired": [e.to_dict() for e in result.expired],
             "stale": [e.to_dict() for e in result.stale],

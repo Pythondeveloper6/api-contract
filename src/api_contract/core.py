@@ -2,20 +2,50 @@
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import logging
+import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .allowlist import AllowEntry, apply_allowlist, load_allowlist
+from ._io import atomic_write_text
+from .allowlist import AllowEntry, add_entries, apply_allowlist, load_allowlist
 from .config import Config, load_config, parse_fail_on
+from .coverage import warnings_for
 from .diff import diff_documents
 from .loaders.base import EXTRAS, Loader, LoaderError, get_loader, missing_dependency, parse_source
 from .loaders.file import read_document
+from .loaders.git import git_show, parse_document
 from .model import ApiContractError, Change, Severity
-from .normalize import dump_snapshot, is_normalized
+from .normalize import (
+    HANDLER,
+    METHODS,
+    RAW_PATH,
+    check_snapshot_format,
+    dump_snapshot,
+    is_normalized,
+)
 from .normalize import normalize as _normalize
+from .policy import apply_policies, apply_usage
 from .rules import Rules
+from .usage import read_usage
+
+log = logging.getLogger("api_contract")
+
+
+@contextlib.contextmanager
+def timed(what: str) -> Iterator[None]:
+    """Log how long a step took (``--verbose`` shows it)."""
+    start = time.perf_counter()
+    log.debug("%s ...", what)
+    try:
+        yield
+    finally:
+        log.info("%s took %.2fs", what, time.perf_counter() - start)
+
 
 # Removed operations no longer exist in the new app, so there is nothing to attribute.
 _UNATTRIBUTED = {"endpoint-removed", "method-removed"}
@@ -27,10 +57,16 @@ class CheckResult:
     fail_on: Severity = Severity.BREAKING
     expired: list[AllowEntry] = field(default_factory=list)
     stale: list[AllowEntry] = field(default_factory=list)
+    # Things that make the result less trustworthy, e.g. an (almost) empty schema.
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def failing(self) -> list[Change]:
-        return [c for c in self.changes if c.severity.rank >= self.fail_on.rank and not c.allowed]
+        return [
+            c
+            for c in self.changes
+            if c.severity.rank >= (c.fail_on or self.fail_on).rank and not c.allowed
+        ]
 
     @property
     def ok(self) -> bool:
@@ -65,7 +101,8 @@ def load_spec(source: str | Loader, *, config: Config | None = None) -> dict[str
 
 def _load(loader: Loader, source: Any) -> dict[str, Any]:
     try:
-        doc = loader.load()
+        with timed(f"loading {source if isinstance(source, str) else loader!r}"):
+            doc = loader.load()
     except ApiContractError:
         raise
     except ModuleNotFoundError as exc:
@@ -98,14 +135,69 @@ def diff(
     ``loader`` is the new spec's loader; when given, each change is attributed
     to the code behind it.
     """
+    changes, _, _ = _diff(old, new, rules=rules, loader=loader, ignore_keys=ignore_keys)
+    return changes
+
+
+def _diff(
+    old: dict[str, Any],
+    new: dict[str, Any],
+    *,
+    rules: Rules | dict[str, str] | None = None,
+    loader: Loader | None = None,
+    ignore_keys=None,
+) -> tuple[list[Change], dict[str, Any], dict[str, Any]]:
+    """Like :func:`diff`, also returning both normalized documents."""
     if not isinstance(rules, Rules):
         rules = Rules(rules)
-    changes = diff_documents(
-        _normalize(old, ignore_keys=ignore_keys), _normalize(new, ignore_keys=ignore_keys), rules
-    )
+    with timed("normalizing"):
+        old_n = _normalize(old, ignore_keys=ignore_keys)
+        new_n = _normalize(new, ignore_keys=ignore_keys)
+    with timed("diffing"):
+        changes = diff_documents(old_n, new_n, rules)
+    log.info("%d change(s) found", len(changes))
     if loader is not None:
-        attribute(changes, loader)
-    return changes
+        with timed("attributing changes"):
+            attribute(changes, loader)
+    attribute_removed(changes, old_n)
+    return changes, old_n, new_n
+
+
+def evaluate(
+    old: dict[str, Any],
+    new: dict[str, Any],
+    config: Config,
+    *,
+    loader: Loader | None = None,
+    today: dt.date | None = None,
+) -> tuple[list[Change], dict[str, Any]]:
+    """Diff with the project's rules, then apply its policies (client profiles,
+    frozen paths, sunsets). Returns the changes and the normalized new document."""
+    changes, old_n, new_n = _diff(
+        old, new, rules=config.make_rules(), loader=loader, ignore_keys=config.ignore_keys
+    )
+    apply_policies(
+        changes,
+        old_n,
+        new_n,
+        base_rules=config.rules,
+        clients=config.clients,
+        frozen=config.frozen,
+        today=today,
+    )
+    return changes, new_n
+
+
+def attribute_removed(changes: list[Change], old: dict[str, Any]) -> None:
+    """Removed endpoints no longer exist in the app; name the handler the snapshot
+    recorded for them, if it did."""
+    for change in changes:
+        if change.kind not in _UNATTRIBUTED or change.attribution or not change.path:
+            continue
+        op = ((old.get("paths") or {}).get(change.path) or {}).get((change.method or "").lower())
+        handler = op.get(HANDLER) if isinstance(op, dict) else None
+        if isinstance(handler, str) and handler:
+            change.attribution = f"{handler} (removed)"
 
 
 def _safe_call(func: Any, *args: Any) -> str | None:
@@ -143,26 +235,109 @@ def attribute(changes: list[Change], loader: Loader) -> None:
         change.attribution = found
 
 
-def read_snapshot(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise ApiContractError(
-            f"snapshot {path} not found; create it with `api-contract snapshot` and commit it"
-        )
-    doc = read_document(path)
+def read_snapshot(path: Path, *, against: str | None = None) -> dict[str, Any]:
+    """Read the snapshot file, or (with ``against``) the file as committed at that
+    git revision, e.g. ``origin/main``."""
+    if against:
+        with timed(f"reading {path.name} at {against}"):
+            doc = parse_document(git_show(against, path), f"{against}:{path.name}")
+        where = f"{path.name} at {against}"
+    else:
+        if not path.exists():
+            raise ApiContractError(
+                f"snapshot {path} not found; create it with `api-contract snapshot` and commit it"
+            )
+        doc = read_document(path)
+        where = str(path)
     if not is_normalized(doc):
-        raise ApiContractError(f"{path} is not an api-contract snapshot")
+        raise ApiContractError(f"{where} is not an api-contract snapshot")
+    check_snapshot_format(doc, where)
     return doc
 
 
-def snapshot(config: Config | None = None, *, source: str | None = None, output=None) -> Path:
-    """Write the normalized schema of ``source`` (default: the configured one)."""
+class SnapshotRefused(ApiContractError):
+    """``snapshot`` would silently approve failing changes; ``result`` lists them."""
+
+    def __init__(self, result: CheckResult) -> None:
+        self.result = result
+        count = len(result.failing)
+        super().__init__(
+            f"refusing to overwrite the snapshot: {count} failing change(s) would be "
+            'approved silently. Fix them, or re-run with --accept "<reason>" to record '
+            "them in the allowlist (or --force to overwrite without a record)"
+        )
+
+
+def record_handlers(normalized: dict[str, Any], loader: Loader) -> None:
+    """Store each operation's handler in the snapshot, so that when the endpoint is
+    later removed the report can still say where it used to be."""
+    attribute_op = getattr(loader, "attribute", None)
+    if attribute_op is None:
+        return
+    for item in (normalized.get("paths") or {}).values():
+        raw = item.get(RAW_PATH)
+        for method in METHODS:
+            op = item.get(method)
+            if isinstance(op, dict) and raw:
+                found = _safe_call(attribute_op, method.upper(), raw)
+                if found:
+                    op[HANDLER] = found
+
+
+def snapshot(
+    config: Config | None = None,
+    *,
+    source: str | None = None,
+    output=None,
+    accept: str | None = None,
+    expires: dt.date | None = None,
+    force: bool = False,
+    today: dt.date | None = None,
+) -> Path:
+    """Write the normalized schema of ``source`` (default: the configured one).
+
+    When a snapshot already exists, the new schema is checked against it first:
+    changes that would fail ``check`` (and are not in the allowlist) make this
+    raise :class:`SnapshotRefused`, because overwriting would approve them with
+    no trace. ``accept="reason"`` records them in the allowlist (expiring on
+    ``expires``, default in 30 days) and writes the snapshot; ``force=True``
+    writes it anyway.
+    """
     config = config or load_config()
     source = source or config.source
     if not source:
         raise ApiContractError("no source configured (set [tool.api-contract] source)")
-    spec = load_spec(source, config=config)
+    loader = resolve_loader(source, config)
+    spec = _load(loader, source)
     path = Path(output) if output else config.snapshot
-    path.write_text(dump_snapshot(_normalize(spec, ignore_keys=config.ignore_keys)), "utf-8")
+    with timed("normalizing"):
+        normalized = _normalize(spec, ignore_keys=config.ignore_keys)
+    record_handlers(normalized, loader)
+    if path.exists() and not force:
+        old = read_snapshot(path)
+        changes, _ = evaluate(old, normalized, config, today=today)
+        result = finish(changes, config, today=today)
+        if result.failing:
+            if not accept or not accept.strip():
+                raise SnapshotRefused(result)
+            today = today or dt.date.today()
+            until = expires or today + dt.timedelta(days=30)
+            add_entries(
+                config.allowlist,
+                [AllowEntry(id=c.id, reason=accept.strip(), expires=until) for c in result.failing],
+            )
+            log.info("recorded %d change(s) in %s", len(result.failing), config.allowlist)
+    atomic_write_text(path, dump_snapshot(normalized))
+    return path
+
+
+def upgrade_snapshot(config: Config | None = None, *, path: Path | None = None) -> Path:
+    """Rewrite an existing snapshot in the current snapshot format and normal form,
+    without loading the app. Run it after upgrading api-contract."""
+    config = config or load_config()
+    path = Path(path) if path else config.snapshot
+    doc = read_snapshot(path)
+    atomic_write_text(path, dump_snapshot(_normalize(doc, ignore_keys=config.ignore_keys)))
     return path
 
 
@@ -172,19 +347,52 @@ def check(
     source: str | Loader | None = None,
     fail_on: Severity | str | None = None,
     today: dt.date | None = None,
+    against: str | None = None,
+    usage: list[str | Path] | None = None,
+    unused_severity: Severity | str | None = None,
 ) -> CheckResult:
-    """Diff the current schema against the committed snapshot and apply the allowlist."""
+    """Diff the current schema against the committed snapshot and apply the allowlist.
+
+    ``against="origin/main"`` reads the snapshot as committed on that git
+    revision instead of the working tree, so a snapshot regenerated in the
+    same branch can't hide a break. ``usage`` is a list of access-log / JSON
+    lines files (see :mod:`api_contract.usage`); with ``unused_severity``,
+    changes to endpoints with no traffic are downgraded to it.
+    """
     config = config or load_config()
     source = source or config.source
     if not source:
         raise ApiContractError("no source configured (set [tool.api-contract] source)")
-    old = read_snapshot(config.snapshot)
+    old = read_snapshot(config.snapshot, against=against)
     loader = resolve_loader(source, config)
     new = _load(loader, source)
-    changes = diff(
-        old, new, rules=config.make_rules(), loader=loader, ignore_keys=config.ignore_keys
-    )
-    return finish(changes, config, fail_on=fail_on, today=today)
+    changes, new_n = evaluate(old, new, config, loader=loader, today=today)
+    if usage:
+        add_usage(changes, new_n, old, usage, unused_severity)
+    result = finish(changes, config, fail_on=fail_on, today=today)
+    result.warnings = warnings_for(new_n)
+    return result
+
+
+def add_usage(
+    changes: list[Change],
+    new_normalized: dict[str, Any],
+    old: dict[str, Any],
+    files: list[str | Path],
+    unused_severity: Severity | str | None = None,
+) -> None:
+    """Annotate changes with traffic counts from ``files`` (and maybe downgrade)."""
+    templates = set(new_normalized.get("paths") or {}) | set(old.get("paths") or {})
+    with timed("reading usage"):
+        sample = read_usage(files, templates)
+    log.info("usage: %d request line(s), %d matched no endpoint", sample.lines, sample.unmatched)
+    if sample.lines == 0:
+        raise ApiContractError(
+            "the usage files contain no recognizable requests (expected access-log lines "
+            "or JSON lines with a method and a path)"
+        )
+    severity = Severity(unused_severity) if unused_severity is not None else None
+    apply_usage(changes, dict(sample.hits), unused_severity=severity)
 
 
 def finish(

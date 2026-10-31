@@ -64,6 +64,10 @@ docs = ["mkdocs-material>=9.5"]
 [project.scripts]
 api-contract = "api_contract.cli:main"
 
+# `pytest --api-contract` and the `api_contract_check` fixture. Inert unless used.
+[project.entry-points.pytest11]
+api_contract = "api_contract.pytest_plugin"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/api_contract"]
 

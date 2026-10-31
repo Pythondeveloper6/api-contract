@@ -2,6 +2,7 @@
 
 A *source* is ``"<kind>:<target>"``: ``file:openapi.yaml``,
 ``fastapi:app.main:app``, ``flask:wsgi:app``, ``django`` (no target),
+``git:origin/main:openapi.yaml`` (a file at a git revision),
 ``django:ninja:proj.api:api``. The kind picks a loader class from
 :data:`LOADERS`; the target (everything after the first colon, possibly ``""``)
 is passed to its constructor untouched. A source with no known kind is treated
@@ -107,6 +108,7 @@ class BaseLoader:
 # Imported lazily so the core never imports a web framework it doesn't need.
 LOADERS: dict[str, str] = {
     "file": "api_contract.loaders.file:FileLoader",
+    "git": "api_contract.loaders.git:GitLoader",
     "fastapi": "api_contract.loaders.fastapi:FastAPILoader",
     "flask": "api_contract.loaders.flask:FlaskLoader",
     "django": "api_contract.loaders.django:DjangoLoader",

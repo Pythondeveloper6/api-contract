@@ -89,6 +89,12 @@ class Change:
     attribution: str | None = None
     # Set by the allowlist step: the entry that acknowledged this change.
     allowed_by: Any = field(default=None, compare=False)
+    # Set by policies: the client profile the endpoint belongs to, and that
+    # profile's own failure threshold (None: the run's ``fail_on``).
+    client: str | None = None
+    fail_on: Severity | None = None
+    # Set by ``--usage``: requests seen for this endpoint in the traffic sample.
+    hits: int | None = None
 
     @property
     def id(self) -> str:
@@ -144,4 +150,6 @@ class Change:
             "component": self.component,
             "attribution": self.attribution,
             "allowed": allowed,
+            "client": self.client,
+            "hits": self.hits,
         }

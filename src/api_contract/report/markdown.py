@@ -42,6 +42,10 @@ def _item(group: ChangeGroup) -> list[str]:
             lines.append(f"  - media types: {', '.join(_code(m) for m in group.media_types)}")
     for attribution in group.attributions:
         lines.append(f"  - at {_code(attribution)}")
+    if change.client:
+        lines.append(f"  - client: {change.client}")
+    if change.hits is not None:
+        lines.append(f"  - traffic: {sum(c.hits or 0 for c in group.changes)} requests")
     if change.allowed_by is not None:
         entry = change.allowed_by
         lines.append(f"  - allowed until {entry.expires.isoformat()}: {entry.reason}")
@@ -64,6 +68,8 @@ def render(
 ) -> str:
     status = "passed" if result.ok else "failed"
     lines = [f"### {summary_line(result)} — {status}"]
+    if result.warnings:
+        lines += [""] + [f"> **Warning:** {w}" for w in result.warnings]
     for severity in (Severity.BREAKING, Severity.POTENTIALLY_BREAKING, Severity.SAFE):
         changes = [c for c in result.changes if c.severity is severity]
         if not changes:

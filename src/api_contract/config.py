@@ -9,6 +9,7 @@ from typing import Any
 
 from .model import ApiContractError, Severity
 from .normalize import DEFAULT_IGNORE_KEYS
+from .policy import ClientProfile
 from .rules import Rules
 
 if sys.version_info >= (3, 11):
@@ -17,7 +18,18 @@ else:  # pragma: no cover - exercised on 3.10 in CI
     import tomli as tomllib
 
 CONFIG_FILES = ("api-contract.toml", "pyproject.toml")
-_KEYS = {"source", "snapshot", "allowlist", "rules", "fail_on", "ignore_keys", "extra_ignore_keys"}
+_KEYS = {
+    "source",
+    "snapshot",
+    "allowlist",
+    "rules",
+    "fail_on",
+    "ignore_keys",
+    "extra_ignore_keys",
+    "frozen",
+    "clients",
+}
+_CLIENT_KEYS = {"paths", "tags", "fail_on", "rules"}
 _FAIL_ON = (Severity.BREAKING, Severity.POTENTIALLY_BREAKING)
 
 
@@ -29,6 +41,9 @@ class Config:
     rules: dict[str, Severity] = field(default_factory=dict)
     fail_on: Severity = Severity.BREAKING
     ignore_keys: tuple[str, ...] = DEFAULT_IGNORE_KEYS
+    # Path globs where every change fails (see api_contract.policy).
+    frozen: tuple[str, ...] = ()
+    clients: list[ClientProfile] = field(default_factory=list)
     # The directory relative paths were resolved against; None means defaults.
     path: Path | None = None
 
@@ -130,6 +145,34 @@ def config_from_dict(table: dict[str, Any], *, base: Path, origin: Path | None =
     extra = key_list("extra_ignore_keys", [])
     ignore = ignore + [k for k in extra if k not in ignore]
 
+    clients = []
+    clients_table = table.get("clients", {})
+    if not isinstance(clients_table, dict):
+        raise ApiContractError(f"'clients'{where} must be a table of [clients.<name>] tables")
+    for name, spec in clients_table.items():
+        label = f"clients.{name}"
+        if not isinstance(spec, dict):
+            raise ApiContractError(f"'{label}'{where} must be a table")
+        unknown = sorted(set(spec) - _CLIENT_KEYS)
+        if unknown:
+            raise ApiContractError(f"unknown setting(s) in '{label}'{where}: {', '.join(unknown)}")
+        paths = _str_list(spec, "paths", f"{label}.paths", where)
+        tags = _str_list(spec, "tags", f"{label}.tags", where)
+        if not paths and not tags:
+            raise ApiContractError(f"'{label}'{where} needs 'paths' or 'tags'")
+        client_rules = spec.get("rules", {})
+        if not isinstance(client_rules, dict):
+            raise ApiContractError(f"'{label}.rules'{where} must be a table of kind = severity")
+        clients.append(
+            ClientProfile(
+                name=str(name),
+                paths=tuple(paths),
+                tags=tuple(tags),
+                fail_on=parse_fail_on(spec["fail_on"]) if "fail_on" in spec else None,
+                rules=Rules(client_rules).overrides,
+            )
+        )
+
     return Config(
         source=source,
         snapshot=as_path("snapshot", "api-contract.json"),
@@ -137,5 +180,16 @@ def config_from_dict(table: dict[str, Any], *, base: Path, origin: Path | None =
         rules=rules,
         fail_on=parse_fail_on(table.get("fail_on", "breaking")),
         ignore_keys=tuple(ignore),
+        frozen=tuple(_str_list(table, "frozen", "frozen", where)),
+        clients=clients,
         path=origin,
     )
+
+
+def _str_list(table: dict[str, Any], key: str, label: str, where: str) -> list[str]:
+    value = table.get(key, [])
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ApiContractError(f"'{label}'{where} must be a list of strings")
+    return value
